@@ -202,7 +202,7 @@ Content-Type: application/json
 
 {
   "phone": "+1234567890",
-  "otp": "123456"
+  "code": "123456"
 }
 ```
 
@@ -248,9 +248,26 @@ All user endpoints require authentication via JWT token in the Authorization hea
 Authorization: Bearer <your-access-token>
 ```
 
-#### Get User Profile
+#### Get User(Client) Profile
 ```http
-GET /api/user/profile
+GET /api/user/me
+Content-Type: application/json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Response:**
+```json
+{
+    "user": {
+        "id": "692410dcd28....",
+        "phone": "+911234567890",
+        "role": "customer",
+        "isVerified": true,
+        "createdAt": "2025-11-24T08:01:32.341Z"
+    }
+}
 ```
 
 ### Admin Endpoints
