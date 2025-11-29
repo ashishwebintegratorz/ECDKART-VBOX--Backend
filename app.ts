@@ -8,6 +8,7 @@ import { asyncHandler } from "./middlewares/asyncHandler.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
+import productRoutes from "./routes/product.route.js";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -39,6 +40,7 @@ app.get(
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/user`, userRoutes);
 app.use(`${BASE_PATH}/admin`, adminRoutes);
+app.use( `${BASE_PATH}/products`, productRoutes);
 
 // error handler (last)
 app.use(errorHandler);
