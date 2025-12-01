@@ -1,4 +1,4 @@
-import { Schema, model, Document } from "mongoose";
+import { Schema, model, Document, Types } from "mongoose";
 
 export type UserRole = "customer" | "driver" | "admin";
 
@@ -8,33 +8,25 @@ export interface IUser extends Document {
   role: UserRole;
   isVerified: boolean;
   pinHash?: string;
+  avatar?: string;
+  email?: string;
+  addresses?: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
+  meta?: Record<string, any>;
 }
 
 const UserSchema = new Schema<IUser>(
   {
-    phone: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    name: {
-      type: String,
-    },
-    role: {
-      type: String,
-      enum: ["customer", "driver", "admin"],
-      default: "customer",
-    },
-    isVerified: {
-      type: Boolean,
-      default: false,
-    },
-    pinHash: {
-      type: String,
-      required: false,
-    },
+    phone: { type: String, required: true, unique: true, index: true },
+    name: { type: String },
+    role: { type: String, enum: ["customer", "driver", "admin"], default: "customer" },
+    isVerified: { type: Boolean, default: false },
+    pinHash: { type: String },
+    avatar: { type: String },
+    email: { type: String, index: true, sparse: true },
+    addresses: [{ type: Schema.Types.ObjectId, ref: "Address" }],
+    meta: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

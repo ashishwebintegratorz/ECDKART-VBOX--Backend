@@ -6,31 +6,16 @@ export interface IOtp extends Document {
   attempts: number;
   expiresAt: Date;
   used: boolean;
+  createdAt: Date;
 }
 
 const OtpSchema = new Schema<IOtp>(
   {
-    phone: {
-      type: String,
-      required: true,
-      index: true,
-    },
-    codeHash: {
-      type: String,
-      required: true,
-    },
-    attempts: {
-      type: Number,
-      default: 0,
-    },
-    expiresAt: {
-      type: Date,
-      required: true,
-    },
-    used: {
-      type: Boolean,
-      default: false,
-    },
+    phone: { type: String, required: true, index: true },
+    codeHash: { type: String, required: true },
+    attempts: { type: Number, default: 0 },
+    expiresAt: { type: Date, required: true, index: true },
+    used: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
