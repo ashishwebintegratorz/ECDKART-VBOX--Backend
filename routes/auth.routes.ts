@@ -22,5 +22,5 @@ router.post(
   validate(refreshTokenSchema),
   authCtrl.refreshTokenController
 );
-
+router.post("/refresh",authCtrl.refreshAccessToken);
 export default router;

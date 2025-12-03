@@ -33,3 +33,4 @@ export const jwtAuth = async (
     next(err);
   }
 };
+export default jwtAuth;

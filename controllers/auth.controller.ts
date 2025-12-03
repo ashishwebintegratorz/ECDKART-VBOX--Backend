@@ -13,7 +13,7 @@ import {
   UnauthorizedException,
 } from "../utils/appError.js";
 import UserModel from "../models/User.model.js";
-import { verifyRefreshJwt } from "../utils/jwt.js";
+import { verifyRefreshJwt,signAccessJwt } from "../utils/jwt.js";
 
 export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
   const { phone, role } = req.body;
@@ -131,3 +131,30 @@ export const refreshTokenController = asyncHandler(
     });
   }
 );
+
+//refresh token controller
+export const refreshAccessToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Missing refresh token" });
+    }
+
+    const payload = verifyRefreshJwt(refreshToken);
+
+    const user = await UserModel.findById(payload.sub);
+    if (!user) {
+      return res.status(401).json({ message: "Invalid refresh token" });
+    }
+
+    const newAccessToken = signAccessJwt({
+      sub: user._id.toString(),
+      role: user.role,
+    });
+
+    return res.json({ token: newAccessToken });
+  } catch (err) {
+    next(err);
+  }
+};
