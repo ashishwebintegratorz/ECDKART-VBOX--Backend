@@ -7,6 +7,14 @@ import {
   InternalServerException,
 } from "../utils/appError.js";
 
+declare global {
+  namespace Express {
+    interface Request {
+      user: { id: string };
+    }
+  }
+}
+
 // ---------------------------------
 // 🔍 Helper: Fetch or Create User Cart
 // ---------------------------------
