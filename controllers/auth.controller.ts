@@ -133,7 +133,7 @@ export const refreshTokenController = asyncHandler(
 );
 
 //refresh token controller
-export const refreshAccessToken = async (req, res, next) => {
+export const refreshAccessToken = async (req: Request, res: Response, next: Function) => {
   try {
     const { refreshToken } = req.body;
 
