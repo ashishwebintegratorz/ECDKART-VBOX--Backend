@@ -11,6 +11,8 @@ import adminRoutes from "./routes/admin.routes.js";
 import productRoutes from "./routes/product.route.js";
 import categoryRoutes from "./routes/categories.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
+import addressRoutes from "./routes/address.routes.js";
+import orderRoutes from "./routes/order.routes.js";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -45,6 +47,8 @@ app.use(`${BASE_PATH}/admin`, adminRoutes);
 app.use( `${BASE_PATH}/products`, productRoutes);
 app.use(`${BASE_PATH}/categories`, categoryRoutes);
 app.use(`${BASE_PATH}/cart`, cartRoutes);
+app.use(`${BASE_PATH}/addresses`, addressRoutes);
+app.use(`${BASE_PATH}/orders`, orderRoutes);
 
 // error handler (last)
 app.use(errorHandler);
