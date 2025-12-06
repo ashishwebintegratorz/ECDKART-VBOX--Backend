@@ -15,7 +15,7 @@ import {
 // 1️⃣ Create Order
 // ---------------------------------------------
 export const createOrder = async (req: Request, res: Response) => {
-  const userId = req.user?._id;
+  const userId = req.user?.id;
   const { items, addressId, totalAmount, payableAmount, meta } = req.body;
 
   if (!items || items.length === 0)
@@ -102,7 +102,7 @@ export const getOrderById = async (req: Request, res: Response) => {
 // 4️⃣ Get My Orders (Customer)
 // ---------------------------------------------
 export const getMyOrders = async (req: Request, res: Response) => {
-  const orders = await Order.find({ customer: req.user._id })
+  const orders = await Order.find({ customer: req.user.id })
     .sort({ createdAt: -1 });
 
   return res.json({ orders });
@@ -112,7 +112,7 @@ export const getMyOrders = async (req: Request, res: Response) => {
 // 5️⃣ Get Driver Orders
 // ---------------------------------------------
 export const getDriverOrders = async (req: Request, res: Response) => {
-  const orders = await Order.find({ assignedDriver: req.user._id })
+  const orders = await Order.find({ assignedDriver: req.user.id })
     .sort({ createdAt: -1 });
 
   return res.json({ orders });
