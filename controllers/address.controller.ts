@@ -5,7 +5,7 @@ import { Request, Response } from "express";
 
 // 🟢 Add new address
 export const addAddress = async (req: Request, res: Response) => {
-  const userId = req.user._id;
+  const userId = req.user.id;
   const { fullAddress, latitude, longitude, label, apartment, landmark, phone, isDefault } = req.body;
 
   const address = await Address.create({
@@ -29,7 +29,7 @@ export const addAddress = async (req: Request, res: Response) => {
 
 // 🟢 Get logged-in user's addresses
 export const getMyAddresses = async (req: Request, res: Response) => {
-  const addresses = await Address.find({ user: req.user._id }).sort({ createdAt: -1 });
+  const addresses = await Address.find({ user: req.user.id }).sort({ createdAt: -1 });
   res.json({ success: true, addresses });
 };
 
@@ -49,7 +49,7 @@ export const updateAddress = async (req: Request, res: Response) => {
   const { id } = req.params;
 
   const address = await Address.findOneAndUpdate(
-    { _id: id, user: req.user._id },
+    { _id: id, user: req.user.id },
     {
       $set: {
         fullAddress: req.body.fullAddress,
@@ -70,9 +70,9 @@ export const updateAddress = async (req: Request, res: Response) => {
 export const deleteAddress = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  await Address.findOneAndDelete({ _id: id, user: req.user._id });
+  await Address.findOneAndDelete({ _id: id, user: req.user.id });
 
-  await User.findByIdAndUpdate(req.user._id, { $pull: { addresses: id } });
+  await User.findByIdAndUpdate(req.user.id, { $pull: { addresses: id } });
 
   res.json({ success: true, message: "Address deleted" });
 };
@@ -81,7 +81,7 @@ export const deleteAddress = async (req: Request, res: Response) => {
 export const setDefaultAddress = async (req: Request, res: Response) => {
   const { id } = req.params;
 
-  await Address.updateMany({ user: req.user._id }, { isDefault: false });
+  await Address.updateMany({ user: req.user.id }, { isDefault: false });
   await Address.findByIdAndUpdate(id, { isDefault: true });
 
   res.json({ success: true, message: "Default address set" });
