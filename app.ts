@@ -13,6 +13,7 @@ import categoryRoutes from "./routes/categories.routes.js";
 import cartRoutes from "./routes/cart.routes.js";
 import addressRoutes from "./routes/address.routes.js";
 import orderRoutes from "./routes/order.routes.js";
+import wishlistRoutes from "./routes/whishlist.routes.js";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -49,6 +50,7 @@ app.use(`${BASE_PATH}/categories`, categoryRoutes);
 app.use(`${BASE_PATH}/cart`, cartRoutes);
 app.use(`${BASE_PATH}/addresses`, addressRoutes);
 app.use(`${BASE_PATH}/orders`, orderRoutes);
+app.use(`${BASE_PATH}/wishlist`, wishlistRoutes);
 
 // error handler (last)
 app.use(errorHandler);
