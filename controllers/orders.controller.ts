@@ -1,188 +1,151 @@
-import { Request, Response } from "express";
+// controllers/order.controller.ts
 import Order from "../models/Order.model.js";
-import Assignment from "../models/Assignment.model.js";
+import Cart from "../models/Cart.model.js";
 import PaymentTransaction from "../models/PaymentTransaction.model.js";
+import Invoice from "../models/Invoice.model.js";
+import { razorpay } from "../config/razorpay.config.js";
+import crypto from "crypto";
+import { Request, Response } from "express";
+import { confirmOrderLogic } from "../services/order.service.js";
+
 import Address from "../models/Address.model.js";
-import User from "../models/User.model.js";
 
-import {
-  BadRequestException,
-  NotFoundException,
-  InternalServerException,
-} from "../utils/appError.js";
-
-// ---------------------------------------------
-// 1️⃣ Create Order
-// ---------------------------------------------
 export const createOrder = async (req: Request, res: Response) => {
-  const userId = req.user?.id;
-  const { items, addressId, totalAmount, payableAmount, meta } = req.body;
-
-  if (!items || items.length === 0)
-    throw new BadRequestException("Order must contain items");
+  const userId = req.user.id;
+  const { addressId, paymentMethod } = req.body;
 
   if (!addressId)
-    throw new BadRequestException("Address ID is required");
+    return res.status(400).json({ message: "Address is required" });
 
-  const address = await Address.findById(addressId);
-  if (!address) throw new NotFoundException("Address not found");
+  // 1️⃣ Fetch & validate address
+  const addressDoc = await Address.findOne({
+    _id: addressId,
+    user: userId,
+  });
 
-  // unique readable order number
-  const lastOrder = await Order.findOne().sort({ createdAt: -1 });
-  const orderNumber = "ORD-" + ((lastOrder?._id.toString().slice(-6)) || "100001");
+  if (!addressDoc)
+    return res.status(404).json({ message: "Address not found" });
 
+  // 2️⃣ Get cart
+  const cart = await Cart.findOne({ user: userId });
+  if (!cart || cart.items.length === 0)
+    return res.status(400).json({ message: "Cart empty" });
+
+  // 3️⃣ Snapshot address
+  const addressSnapshot = {
+    fullAddress: addressDoc.fullAddress,
+    apartment: addressDoc.apartment,
+    landmark: addressDoc.landmark,
+    location: addressDoc.location,
+    phone: addressDoc.phone,
+  };
+
+  // 4️⃣ Calculate amount
+  const totalAmount = cart.items.reduce(
+    (s, i) => s + i.priceAtAdd * i.qty,
+    0
+  );
+
+  // 5️⃣ Create order
   const order = await Order.create({
-    orderNumber,
+    orderNumber: `ORD-${Date.now()}`,
     customer: userId,
-    items,
+    items: cart.items.map(i => ({
+      product: i.product,
+      name: i.name,
+      variantIndex: i.variantIndex,
+      qty: i.qty,
+      price: i.priceAtAdd,
+      subtotal: i.priceAtAdd * i.qty,
+    })),
     totalAmount,
-    payableAmount,
-    address: {
-      _id: address._id,
-      fullAddress: address.fullAddress,
-      coordinates: address.location.coordinates,
-      phone: address.phone,
-      label: address.label,
-    },
-    meta,
+    payableAmount: totalAmount,
+    address: addressSnapshot,
+    status: "pending",
   });
 
-  return res.status(201).json({
-    message: "Order created successfully",
-    order,
+  // 6️⃣ COD flow
+  if (paymentMethod === "cod") {
+    await PaymentTransaction.create({
+      order: order._id,
+      provider: "cod",
+      amount: totalAmount,
+      status: "success",
+    });
+
+    await confirmOrderLogic(order._id.toString());
+    const updatedOrder = await Order.findById(order._id);
+
+    return res.json({ order: updatedOrder, cod: true });
+  }
+
+  // 7️⃣ Razorpay flow
+  const razorpayOrder = await razorpay.orders.create({
+    amount: totalAmount * 100,
+    currency: "INR",
+    receipt: order.orderNumber,
+    payment_capture: true,
   });
-};
 
-// ---------------------------------------------
-// 2️⃣ Get All Orders (Admin + Filters)
-// ---------------------------------------------
-export const getAllOrders = async (req: Request, res: Response) => {
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
-  const skip = (page - 1) * limit;
+  await PaymentTransaction.create({
+    order: order._id,
+    provider: "razorpay",
+    providerPaymentId: razorpayOrder.id,
+    amount: totalAmount,
+    status: "initiated",
+  });
 
-  const status = req.query.status as string;
-
-  const filter: any = {};
-  if (status) filter.status = status;
-
-  const [orders, total] = await Promise.all([
-    Order.find(filter)
-      .populate("customer", "name phone")
-      .populate("assignedDriver", "name phone")
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit),
-
-    Order.countDocuments(filter),
-  ]);
-
-  return res.json({
-    orders,
-    total,
-    currentPage: page,
-    totalPages: Math.ceil(total / limit),
+  res.json({
+    orderId: order._id,
+    razorpayOrderId: razorpayOrder.id,
+    amount: totalAmount,
+    currency: "INR",
   });
 };
 
-// ---------------------------------------------
-// 3️⃣ Get Single Order
-// ---------------------------------------------
-export const getOrderById = async (req: Request, res: Response) => {
-  const order = await Order.findById(req.params.id)
-    .populate("customer", "name phone")
-    .populate("assignedDriver", "name phone");
+// controllers/payment.controller.ts
+export const verifyPayment = async (req: Request, res: Response) => {
+  const {
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+  } = req.body;
 
-  if (!order) throw new NotFoundException("Order not found");
+  const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-  return res.json({ order });
-};
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+    .update(body)
+    .digest("hex");
 
-// ---------------------------------------------
-// 4️⃣ Get My Orders (Customer)
-// ---------------------------------------------
-export const getMyOrders = async (req: Request, res: Response) => {
-  const orders = await Order.find({ customer: req.user.id })
-    .sort({ createdAt: -1 });
+  if (expectedSignature !== razorpay_signature)
+    return res.status(400).json({ message: "Invalid payment signature" });
 
-  return res.json({ orders });
-};
-
-// ---------------------------------------------
-// 5️⃣ Get Driver Orders
-// ---------------------------------------------
-export const getDriverOrders = async (req: Request, res: Response) => {
-  const orders = await Order.find({ assignedDriver: req.user.id })
-    .sort({ createdAt: -1 });
-
-  return res.json({ orders });
-};
-
-// ---------------------------------------------
-// 6️⃣ Update Order Status
-// ---------------------------------------------
-export const updateOrderStatus = async (req: Request, res: Response) => {
-  const { status } = req.body;
-
-  const order = await Order.findById(req.params.id);
-  if (!order) throw new NotFoundException("Order not found");
-
-  order.status = status;
-  await order.save();
-
-  return res.json({
-    message: "Order status updated",
-    order,
-  });
-};
-
-// ---------------------------------------------
-// 7️⃣ Assign Driver
-// ---------------------------------------------
-export const assignDriver = async (req: Request, res: Response) => {
-  const { orderId, driverId } = req.body;
-
-  const driver = await User.findById(driverId);
-  if (!driver || driver.role !== "driver")
-    throw new BadRequestException("Invalid driver ID");
-
-  const assignment = await Assignment.create({
-    driver: driverId,
-    orders: [orderId],
+  const transaction = await PaymentTransaction.findOne({
+    providerPaymentId: razorpay_order_id,
   });
 
-  const order = await Order.findByIdAndUpdate(
-    orderId,
-    {
-      assignedDriver: driverId,
-      assignmentId: assignment._id,
-      status: "out_for_delivery",
-    },
-    { new: true }
-  );
+  if (!transaction)
+    return res.status(404).json({ message: "Transaction not found" });
 
-  if (!order) throw new InternalServerException("Driver assignment failed");
+  transaction.status = "success";
+  transaction.meta = { razorpay_payment_id };
+  await transaction.save();
 
-  return res.json({
-    message: "Driver assigned",
-    order,
-  });
+  await confirmOrderLogic(transaction.order.toString());
+
+  res.json({ success: true });
 };
 
-// ---------------------------------------------
-// 8️⃣ Cancel Order
-// ---------------------------------------------
-export const cancelOrder = async (req: Request, res: Response) => {
-  const order = await Order.findByIdAndUpdate(
-    req.params.id,
-    { status: "cancelled" },
-    { new: true }
-  );
+export const getInvoiceByOrder = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const invoice = await Invoice.findOne({ order: orderId }).populate("order");
+  if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+  res.json(invoice);
+};
 
-  if (!order) throw new NotFoundException("Order not found");
-
-  return res.json({ 
-    message: "Order cancelled",
-    order,
-  });
+export const getMyInvoices = async (req: Request, res: Response) => {
+  const userId = req.user.id;
+  const invoices = await Invoice.find({ customer: userId }).sort({ createdAt: -1 });
+  res.json(invoices);
 };

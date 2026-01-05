@@ -14,9 +14,13 @@ import cartRoutes from "./routes/cart.routes.js";
 import addressRoutes from "./routes/address.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import wishlistRoutes from "./routes/whishlist.routes.js";
+import razorpayRoutes from "./routes/razorpay.routes.js";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
+
+// 🟢 Razorpay Webhook (MUST be before express.json() for raw body verification)
+app.use(`${BASE_PATH}/razorpay`, razorpayRoutes);
 
 // Body
 app.use(express.json());
@@ -45,12 +49,13 @@ app.get(
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/user`, userRoutes);
 app.use(`${BASE_PATH}/admin`, adminRoutes);
-app.use( `${BASE_PATH}/products`, productRoutes);
+app.use(`${BASE_PATH}/products`, productRoutes);
 app.use(`${BASE_PATH}/categories`, categoryRoutes);
 app.use(`${BASE_PATH}/cart`, cartRoutes);
 app.use(`${BASE_PATH}/addresses`, addressRoutes);
 app.use(`${BASE_PATH}/orders`, orderRoutes);
 app.use(`${BASE_PATH}/wishlist`, wishlistRoutes);
+// app.use(`${BASE_PATH}/razorpay`, razorpayRoutes); // Moved up
 
 // error handler (last)
 app.use(errorHandler);

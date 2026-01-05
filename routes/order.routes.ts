@@ -1,36 +1,35 @@
 import { Router } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware.js";
-import { jwtAuth } from "../middlewares/jwtAuth.middleware.js";
-
-
+import { jwtAuth } from "../middlewares/jwtAuth.middleware.js"; // user auth
+//import { authDriver } from "../middlewares/driverAuth.middleware.js"; // if you separate drivers
 import {
-  createOrder,
-  getAllOrders,
-  getMyOrders,
-  getDriverOrders,
-  getOrderById,
-  assignDriver,
-  cancelOrder,
-  updateOrderStatus,
+  createOrder, verifyPayment, getInvoiceByOrder, getMyInvoices
 } from "../controllers/orders.controller.js";
-import { requireRole } from "../middlewares/role.middleware.js";
-
 const router = Router();
 
-// ---------- Customer ----------
-router.post("/create", jwtAuth ,requireRole("customer"), asyncHandler(createOrder));
-router.get("/mine", jwtAuth ,requireRole("customer"), asyncHandler(getMyOrders));
-router.patch("/:id/cancel", jwtAuth , asyncHandler(cancelOrder));
+// 🟢 Create Order
 
-// ---------- Driver ----------
-router.get("/driver/orders", jwtAuth ,requireRole("driver"), asyncHandler(getDriverOrders));
+router.post(
+  "/create",
+  jwtAuth,
+  asyncHandler(createOrder)
+);
+router.post(
+  "/verify-payment",
+  jwtAuth,
+  asyncHandler(verifyPayment)
+);
 
-// ---------- Admin / Management ----------
-router.get("/all", jwtAuth , asyncHandler(getAllOrders));
-router.patch("/:id/status", jwtAuth , asyncHandler(updateOrderStatus));
-router.post("/assign-driver", jwtAuth , asyncHandler(assignDriver));
+router.get(
+  "/invoice/:orderId",
+  jwtAuth,
+  asyncHandler(getInvoiceByOrder)
+);
 
-// ---------- Common ----------
-router.get("/:id", jwtAuth , asyncHandler(getOrderById));
+router.get(
+  "/my-invoices",
+  jwtAuth,
+  asyncHandler(getMyInvoices)
+);
 
 export default router;
