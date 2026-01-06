@@ -13,7 +13,7 @@ import {
   UnauthorizedException,
 } from "../utils/appError.js";
 import UserModel from "../models/User.model.js";
-import { verifyRefreshJwt,signAccessJwt } from "../utils/jwt.js";
+import { verifyRefreshJwt, signAccessJwt } from "../utils/jwt.js";
 
 export const sendOtp = asyncHandler(async (req: Request, res: Response) => {
   const { phone, role } = req.body;
@@ -44,14 +44,11 @@ export const verifyOtpController = asyncHandler(
       throw new BadRequestException(verification.reason || "Invalid OTP");
     }
 
-    const defaultRole = (role as any) || "customer";
-    const user = await findOrCreateUserByPhone(phone, defaultRole);
+    const user = await findOrCreateUserByPhone(phone, role as any);
 
     const isDriverOrAdmin =
       user.role === "driver" ||
-      user.role === "admin" ||
-      defaultRole === "driver" ||
-      defaultRole === "admin";
+      user.role === "admin";
 
     if (isDriverOrAdmin && pin) {
       await setUserPin(user, pin);

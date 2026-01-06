@@ -175,110 +175,136 @@ FRONTEND_ORIGIN=http://localhost:3000
 
 Base URL: `http://localhost:5000/api`
 
-### Authentication Endpoints
+### 🔐 Authentication Endpoints
 
-#### Send OTP
-```http
-POST /api/auth/send-otp
-Content-Type: application/json
+#### 1. Send OTP
+Request a 6-digit verification code.
+- **Method:** `POST`
+- **Path:** `/api/auth/send-otp`
+- **Body:**
+  ```json
+  {
+    "phone": "+919876543210",
+    "role": "driver" 
+  }
+  ```
+> [!NOTE]
+> `role` is optional (defaults to "customer"). For first-time drivers/admins, specifying the role here is recommended.
 
-{
-  "phone": "+1234567890"
-}
-```
+#### 2. Verify OTP
+Verify the code and receive JWT tokens.
+- **Method:** `POST`
+- **Path:** `/api/auth/verify-otp`
+- **Body:**
+  ```json
+  {
+    "phone": "+919876543210",
+    "code": "123456",
+    "role": "driver",
+    "pin": "1234"
+  }
+  ```
+> [!IMPORTANT]
+> For **Drivers** and **Admins**: Providing a `pin` here will set or update your login PIN.
 
-**Response:**
-```json
-{
-  "message": "OTP sent successfully",
-  "expiresAt": "2024-11-22T12:06:00.000Z"
-}
-```
+#### 3. Login with PIN
+Quick login for Drivers and Admins using their set PIN.
+- **Method:** `POST`
+- **Path:** `/api/auth/login-with-pin`
+- **Body:**
+  ```json
+  {
+    "phone": "+919876543210",
+    "pin": "1234"
+  }
+  ```
 
-#### Verify OTP
-```http
-POST /api/auth/verify-otp
-Content-Type: application/json
+---
 
-{
-  "phone": "+1234567890",
-  "code": "123456"
-}
-```
+### 👤 User Endpoints (All Roles)
+Requires `Authorization: Bearer <token>`
 
-**Response:**
-```json
-{
-  "user": {
-    "id": "user_id",
-    "phone": "+1234567890",
-    "role": "customer",
-    "isVerified": true
-  },
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
+#### 1. Get Profile
+- **Method:** `GET`
+- **Path:** `/api/user/me`
 
-#### Login with PIN
-```http
-POST /api/auth/login-with-pin
-Content-Type: application/json
+#### 2. Toggle Online Status (Drivers Only)
+Set yourself available or unavailable for assignments.
+- **Method:** `PUT`
+- **Path:** `/api/user/toggle-online`
+- **Body:** `{ "isOnline": true }`
 
-{
-  "phone": "+1234567890",
-  "pin": "1234"
-}
-```
+#### 3. Signal Reached Store (Drivers Only)
+Clear your "Returning" status and become available for new orders.
+- **Method:** `PUT`
+- **Path:** `/api/user/reached-store`
 
-#### Refresh Token
-```http
-POST /api/auth/refresh-token
-Content-Type: application/json
+---
 
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
+### 🚚 Driver Endpoints
+Requires `Authorization: Bearer <token>` and `role: "driver"`
 
-### User Endpoints
+#### 1. Get My Assigned Orders
+- **Method:** `GET`
+- **Path:** `/api/orders/driver/my-orders`
+- **Query Params:** `?deliveryStatus=out_for_delivery` (optional)
 
-All user endpoints require authentication via JWT token in the Authorization header:
-```http
-Authorization: Bearer <your-access-token>
-```
+#### 2. Update Delivery Status
+- **Method:** `PUT`
+- **Path:** `/api/orders/driver/update-status/:orderId`
+- **Body:** `{ "status": "delivered" }`
+- **Allowed Statuses:** `out_for_delivery`, `delivered`, `failed`
 
-#### Get User(Client) Profile
-```http
-GET /api/user/me
-Content-Type: application/json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
+---
 
-**Response:**
-```json
-{
-    "user": {
-        "id": "692410dcd28....",
-        "phone": "+911234567890",
-        "role": "customer",
-        "isVerified": true,
-        "createdAt": "2025-11-24T08:01:32.341Z"
-    }
-}
-```
+### 🛠️ Admin Endpoints
+Requires `Authorization: Bearer <token>` and `role: "admin"`
 
-### Admin Endpoints
+#### 1. List All Orders
+- **Method:** `GET`
+- **Path:** `/api/orders/all`
+- **Query Params:** `?status=confirmed&deliveryStatus=pending` (optional)
 
-Admin endpoints require both authentication and admin role.
+#### 2. Get All Drivers
+Fetch all drivers with their real-time availability and busy status.
+- **Method:** `GET`
+- **Path:** `/api/user/drivers`
 
-#### Get All Orders
-```http
-GET /api/admin/orders
-Authorization: Bearer <admin-access-token>
-```
+#### 3. Assign Driver to Order
+- **Method:** `PUT`
+- **Path:** `/api/orders/assign-driver/:orderId`
+- **Body:** `{ "driverId": "user_id_here" }`
+
+#### 4. Update Order/Delivery Status
+- **Method:** `PUT`
+- **Path:** `/api/orders/update-status/:orderId`
+- **Body:** 
+  ```json
+  { 
+    "status": "ready", 
+    "deliveryStatus": "assigned" 
+  }
+  ```
+
+---
+
+### 🔄 Order Status Reference
+
+| Status Type | Allowed Values |
+| :--- | :--- |
+| **Order (Life Cycle)** | `pending`, `confirmed`, `preparing`, `ready`, `cancelled`, `failed` |
+| **Delivery** | `pending`, `assigned`, `out_for_delivery`, `delivered`, `cancelled`, `failed` |
+
+---
+
+### 🏁 Driver Workflow Guide
+
+1. **Go Online:** Login and call `/api/user/toggle-online` with `isOnline: true`.
+2. **Accept Order:** Admin assigns an order. Your `deliveryStatus` becomes `assigned`. You are now `isBusy: true`.
+3. **Out for Delivery:** Call `/api/orders/driver/update-status/:id` with `status: "out_for_delivery"`.
+4. **Deliver:** Call `/api/orders/driver/update-status/:id` with `status: "delivered"`.
+5. **Return to Store:** Upon last delivery, your `isReturning` status becomes `true`. You cannot receive new orders.
+6. **Arrive at Base:** Call `/api/user/reached-store`. You are now available again!
 
 ## 🏗️ Architecture
 

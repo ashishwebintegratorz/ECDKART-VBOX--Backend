@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { jwtAuth } from "../middlewares/jwtAuth.middleware.js";
+import { requireRole } from "../middlewares/role.middleware.js";
+import { getDrivers, toggleDriverOnlineStatus, markReachedStore } from "../controllers/user.controller.js";
 
 const router = Router();
 
@@ -16,5 +18,11 @@ router.get("/me", jwtAuth, (req, res) => {
         },
     });
 });
+
+router.get("/drivers", jwtAuth, getDrivers);
+
+router.put("/toggle-online", jwtAuth, requireRole("driver"), toggleDriverOnlineStatus);
+
+router.put("/reached-store", jwtAuth, requireRole("driver"), markReachedStore);
 
 export default router;

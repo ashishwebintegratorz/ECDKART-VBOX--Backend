@@ -5,6 +5,12 @@ export type OrderStatus =
   | "confirmed"
   | "preparing"
   | "ready"
+  | "cancelled"
+  | "failed";
+
+export type DeliveryStatus =
+  | "pending"
+  | "assigned"
   | "out_for_delivery"
   | "delivered"
   | "cancelled"
@@ -27,6 +33,7 @@ export interface IOrder extends Document {
   payableAmount: number;
   address: Types.ObjectId | any; // denormalized address snapshot or ref
   status: OrderStatus;
+  deliveryStatus: DeliveryStatus;
   assignedDriver?: Types.ObjectId;
   assignmentId?: Types.ObjectId; // reference to Assignment
   paymentTransaction?: Types.ObjectId;
@@ -56,6 +63,7 @@ const OrderSchema = new Schema<IOrder>(
     payableAmount: { type: Number, required: true },
     address: { type: Schema.Types.Mixed, required: true }, // store snapshot: {fullAddress, location, phone}
     status: { type: String, default: "pending", index: true },
+    deliveryStatus: { type: String, default: "pending", index: true },
     assignedDriver: { type: Schema.Types.ObjectId, ref: "User" },
     assignmentId: { type: Schema.Types.ObjectId, ref: "Assignment" },
     paymentTransaction: { type: Schema.Types.ObjectId, ref: "PaymentTransaction" },
@@ -66,5 +74,6 @@ const OrderSchema = new Schema<IOrder>(
 
 OrderSchema.index({ customer: 1, createdAt: -1 });
 OrderSchema.index({ status: 1, assignedDriver: 1 });
+OrderSchema.index({ deliveryStatus: 1, assignedDriver: 1 });
 
 export default model<IOrder>("Order", OrderSchema);

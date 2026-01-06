@@ -4,18 +4,27 @@ import { signAccessJwt, signRefreshJwt } from "../utils/jwt.js";
 
 export async function findOrCreateUserByPhone(
   phone: string,
-  defaultRole: UserRole = "customer"
+  requestedRole?: UserRole
 ): Promise<IUser> {
   let user = await UserModel.findOne({ phone });
 
   if (!user) {
     user = await UserModel.create({
       phone,
-      role: defaultRole,
+      role: requestedRole || "customer",
       isVerified: true,
     });
-  } else if (!user.isVerified) {
-    user.isVerified = true;
+  } else {
+    // Mark as verified if not already
+    if (!user.isVerified) {
+      user.isVerified = true;
+    }
+
+    // Allow "upgrading" from customer to driver/admin if requested
+    if (requestedRole && requestedRole !== "customer" && user.role === "customer") {
+      user.role = requestedRole;
+    }
+
     await user.save();
   }
 

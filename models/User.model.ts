@@ -11,6 +11,8 @@ export interface IUser extends Document {
   avatar?: string;
   email?: string;
   addresses?: Types.ObjectId[];
+  isOnline: boolean;
+  isReturning: boolean;
   createdAt: Date;
   updatedAt: Date;
   meta?: Record<string, any>;
@@ -26,6 +28,8 @@ const UserSchema = new Schema<IUser>(
     avatar: { type: String },
     email: { type: String, index: true, sparse: true },
     addresses: [{ type: Schema.Types.ObjectId, ref: "Address" }],
+    isOnline: { type: Boolean, default: false, index: true },
+    isReturning: { type: Boolean, default: false, index: true },
     meta: { type: Schema.Types.Mixed },
   },
   { timestamps: true }

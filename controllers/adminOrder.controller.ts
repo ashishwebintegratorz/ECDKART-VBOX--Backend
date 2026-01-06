@@ -7,14 +7,18 @@ import { NotFoundException } from "../utils/appError.js";
 export const updateOrderStatus = asyncHandler(
   async (req: Request, res: Response) => {
     const { orderId } = req.params;
-    const { status } = req.body;
+    const { status, deliveryStatus } = req.body;
     const order = await OrderModel.findById(orderId);
     if (!order) throw new NotFoundException("Order not found");
-    order.status = status;
+
+    if (status) order.status = status;
+    if (deliveryStatus) order.deliveryStatus = deliveryStatus;
+
     await order.save();
 
     emitOrderStatusUpdate(orderId, {
       status: order.status,
+      deliveryStatus: order.deliveryStatus,
       updatedAt: (order as any).updatedAt,
     });
     return res.json({ message: "Status updated", order });
