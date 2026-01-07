@@ -311,7 +311,9 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
 
   order.assignedDriver = driverId as any;
   order.deliveryStatus = "assigned";
+  driver.isReturning = true;
   await order.save();
+  await driver.save();
 
   res.json({ message: "Order assigned to driver", order });
 };

@@ -39,7 +39,12 @@ router.get(
   jwtAuth,
   asyncHandler(getMyOrders)
 );
-
+router.get(
+  "/all",
+  jwtAuth,
+  requireRole("admin"),
+  asyncHandler(getAllOrders)
+);
 router.get(
   "/:orderId",
   jwtAuth,
@@ -59,12 +64,7 @@ router.put(
   asyncHandler(updateOrderStatus)
 );
 
-router.get(
-  "/all",
-  jwtAuth,
-  requireRole("admin"),
-  asyncHandler(getAllOrders)
-);
+
 
 // --- Driver & Admin Assignment Routes ---
 

@@ -69,6 +69,7 @@ vegbox-backend/
 ├── controllers/           # Request handlers
 │   ├── auth.controller.ts
 │   ├── user.controller.ts
+│   ├── driver.controller.ts
 │   └── adminOrder.controller.ts
 ├── middlewares/           # Express middlewares
 │   ├── asyncHandler.middleware.ts
@@ -84,6 +85,7 @@ vegbox-backend/
 ├── routes/                # API route definitions
 │   ├── auth.routes.ts
 │   ├── user.routes.ts
+│   ├── driver.routes.ts
 │   └── admin.routes.ts
 ├── services/              # Business logic layer
 │   ├── auth.service.ts
@@ -228,17 +230,6 @@ Requires `Authorization: Bearer <token>`
 - **Method:** `GET`
 - **Path:** `/api/user/me`
 
-#### 2. Toggle Online Status (Drivers Only)
-Set yourself available or unavailable for assignments.
-- **Method:** `PUT`
-- **Path:** `/api/user/toggle-online`
-- **Body:** `{ "isOnline": true }`
-
-#### 3. Signal Reached Store (Drivers Only)
-Clear your "Returning" status and become available for new orders.
-- **Method:** `PUT`
-- **Path:** `/api/user/reached-store`
-
 ---
 
 ### 🚚 Driver Endpoints
@@ -255,6 +246,17 @@ Requires `Authorization: Bearer <token>` and `role: "driver"`
 - **Body:** `{ "status": "delivered" }`
 - **Allowed Statuses:** `out_for_delivery`, `delivered`, `failed`
 
+#### 3. Toggle Online Status
+Set yourself available or unavailable for assignments.
+- **Method:** `PUT`
+- **Path:** `/api/drivers/toggle-online`
+- **Body:** `{ "isOnline": true }`
+
+#### 4. Signal Reached Store
+Clear your "Returning" status and become available for new orders.
+- **Method:** `PUT`
+- **Path:** `/api/drivers/reached-store`
+
 ---
 
 ### 🛠️ Admin Endpoints
@@ -268,14 +270,19 @@ Requires `Authorization: Bearer <token>` and `role: "admin"`
 #### 2. Get All Drivers
 Fetch all drivers with their real-time availability and busy status.
 - **Method:** `GET`
-- **Path:** `/api/user/drivers`
+- **Path:** `/api/drivers/all`
 
-#### 3. Assign Driver to Order
+#### 3. Get Free Drivers
+Fetch drivers who are online and not currently busy.
+- **Method:** `GET`
+- **Path:** `/api/drivers/free`
+
+#### 4. Assign Driver to Order
 - **Method:** `PUT`
 - **Path:** `/api/orders/assign-driver/:orderId`
 - **Body:** `{ "driverId": "user_id_here" }`
 
-#### 4. Update Order/Delivery Status
+#### 5. Update Order/Delivery Status
 - **Method:** `PUT`
 - **Path:** `/api/orders/update-status/:orderId`
 - **Body:** 
@@ -299,12 +306,12 @@ Fetch all drivers with their real-time availability and busy status.
 
 ### 🏁 Driver Workflow Guide
 
-1. **Go Online:** Login and call `/api/user/toggle-online` with `isOnline: true`.
+1. **Go Online:** Login and call `/api/drivers/toggle-online` with `isOnline: true`.
 2. **Accept Order:** Admin assigns an order. Your `deliveryStatus` becomes `assigned`. You are now `isBusy: true`.
 3. **Out for Delivery:** Call `/api/orders/driver/update-status/:id` with `status: "out_for_delivery"`.
 4. **Deliver:** Call `/api/orders/driver/update-status/:id` with `status: "delivered"`.
 5. **Return to Store:** Upon last delivery, your `isReturning` status becomes `true`. You cannot receive new orders.
-6. **Arrive at Base:** Call `/api/user/reached-store`. You are now available again!
+6. **Arrive at Base:** Call `/api/drivers/reached-store`. You are now available again!
 
 ## 🏗️ Architecture
 

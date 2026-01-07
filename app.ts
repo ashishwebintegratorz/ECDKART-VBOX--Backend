@@ -15,6 +15,7 @@ import addressRoutes from "./routes/address.routes.js";
 import orderRoutes from "./routes/order.routes.js";
 import wishlistRoutes from "./routes/whishlist.routes.js";
 import razorpayRoutes from "./routes/razorpay.routes.js";
+import driverRoutes from "./routes/driver.routes.js";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -55,6 +56,7 @@ app.use(`${BASE_PATH}/cart`, cartRoutes);
 app.use(`${BASE_PATH}/addresses`, addressRoutes);
 app.use(`${BASE_PATH}/orders`, orderRoutes);
 app.use(`${BASE_PATH}/wishlist`, wishlistRoutes);
+app.use(`${BASE_PATH}/drivers`, driverRoutes);
 // app.use(`${BASE_PATH}/razorpay`, razorpayRoutes); // Moved up
 
 // error handler (last)
