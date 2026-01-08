@@ -140,29 +140,8 @@ export const verifyPayment = async (req: Request, res: Response) => {
   res.json({ success: true });
 };
 
-export const getInvoiceByOrder = async (req: Request, res: Response) => {
-  const { orderId } = req.params;
-  const user = (req as any).user;
 
-  const invoice = await Invoice.findOne({ order: orderId }).populate("order");
-  if (!invoice) return res.status(404).json({ message: "Invoice not found" });
-
-  const isAdmin = user.role === "admin";
-  const isOwner = (invoice as any).customer?.toString() === user.id ||
-    (invoice.order as any).customer?.toString() === user.id;
-
-  if (!isAdmin && !isOwner) {
-    return res.status(403).json({ message: "You do not have permission to access this invoice" });
-  }
-
-  res.json(invoice);
-};
-
-export const getMyInvoices = async (req: Request, res: Response) => {
-  const userId = req.user.id;
-  const invoices = await Invoice.find({ customer: userId }).sort({ createdAt: -1 });
-  res.json(invoices);
-};
+//user orders get
 
 //user orders get
 

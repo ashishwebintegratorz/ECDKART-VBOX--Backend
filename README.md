@@ -86,7 +86,9 @@ vegbox-backend/
 │   ├── auth.routes.ts
 │   ├── user.routes.ts
 │   ├── driver.routes.ts
-│   └── admin.routes.ts
+│   ├── admin.routes.ts
+│   ├── invoice.routes.ts
+│   └── order.routes.ts
 ├── services/              # Business logic layer
 │   ├── auth.service.ts
 │   └── otp.service.ts
@@ -256,6 +258,28 @@ Set yourself available or unavailable for assignments.
 Clear your "Returning" status and become available for new orders.
 - **Method:** `PUT`
 - **Path:** `/api/drivers/reached-store`
+
+---
+
+### 📄 Invoice Endpoints
+Requires `Authorization: Bearer <token>`
+
+#### 1. Get My Invoices
+- **Method:** `GET`
+- **Path:** `/api/invoices/me`
+
+#### 2. Get Invoice by Order ID
+- **Method:** `GET`
+- **Path:** `/api/invoices/order/:orderId`
+
+#### 3. Get Invoice by ID
+- **Method:** `GET`
+- **Path:** `/api/invoices/:id`
+
+#### 4. List All Invoices (Admin Only)
+- **Method:** `GET`
+- **Path:** `/api/invoices`
+- **Query Params:** `?status=paid&from=2024-01-01&to=2024-01-31` (optional)
 
 ---
 

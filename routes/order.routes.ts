@@ -3,7 +3,7 @@ import { asyncHandler } from "../middlewares/asyncHandler.middleware.js";
 import { jwtAuth } from "../middlewares/jwtAuth.middleware.js"; // user auth
 //import { authDriver } from "../middlewares/driverAuth.middleware.js"; // if you separate drivers
 import {
-  createOrder, verifyPayment, getInvoiceByOrder, getMyInvoices, getMyOrders, getOrderById, cancelOrder, updateOrderStatus, getAllOrders,
+  createOrder, verifyPayment, getMyOrders, getOrderById, cancelOrder, updateOrderStatus, getAllOrders,
   assignOrderToDriver, getDriverOrders, updateOrderByDriver
 } from "../controllers/orders.controller.js";
 import { requireRole } from "../middlewares/role.middleware.js";
@@ -22,17 +22,6 @@ router.post(
   asyncHandler(verifyPayment)
 );
 
-router.get(
-  "/invoice/:orderId",
-  jwtAuth,
-  asyncHandler(getInvoiceByOrder)
-);
-
-router.get(
-  "/my-invoices",
-  jwtAuth,
-  asyncHandler(getMyInvoices)
-);
 
 router.get(
   "/my-orders",
