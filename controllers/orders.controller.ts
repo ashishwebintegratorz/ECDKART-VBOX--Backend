@@ -9,8 +9,8 @@ import { Request, Response } from "express";
 import { confirmOrderLogic } from "../services/order.service.js";
 import User from "../models/User.model.js";
 import { emitOrderStatusUpdate } from "../socket/orderSocket.js";
-
 import Address from "../models/Address.model.js";
+import { calculateDeliveryCharge } from "../utils/delivery.utils.js";
 
 export const createOrder = async (req: Request, res: Response) => {
   const userId = req.user.id;
@@ -48,6 +48,17 @@ export const createOrder = async (req: Request, res: Response) => {
     0
   );
 
+  // ✅ Min order check
+  if (totalAmount < 100) {
+    return res.status(400).json({
+      message: "Minimum order amount is ₹100"
+    });
+  }
+
+  // ✅ Delivery charge
+  const deliveryCharge = calculateDeliveryCharge(totalAmount);
+  const payableAmount = totalAmount + deliveryCharge;
+
   // 5️⃣ Create order
   const order = await Order.create({
     orderNumber: `ORD-${Date.now()}`,
@@ -61,7 +72,8 @@ export const createOrder = async (req: Request, res: Response) => {
       subtotal: i.priceAtAdd * i.qty,
     })),
     totalAmount,
-    payableAmount: totalAmount,
+    deliveryCharge,
+    payableAmount,
     address: addressSnapshot,
     status: "pending",
     deliveryStatus: "pending",
@@ -72,19 +84,18 @@ export const createOrder = async (req: Request, res: Response) => {
     await PaymentTransaction.create({
       order: order._id,
       provider: "cod",
-      amount: totalAmount,
+      amount: payableAmount,
       status: "success",
     });
 
     await confirmOrderLogic(order._id.toString());
     const updatedOrder = await Order.findById(order._id);
-
     return res.json({ order: updatedOrder, cod: true });
   }
 
   // 7️⃣ Razorpay flow
   const razorpayOrder = await razorpay.orders.create({
-    amount: totalAmount * 100,
+    amount: payableAmount * 100,
     currency: "INR",
     receipt: order.orderNumber,
     payment_capture: true,
@@ -94,19 +105,19 @@ export const createOrder = async (req: Request, res: Response) => {
     order: order._id,
     provider: "razorpay",
     providerPaymentId: razorpayOrder.id,
-    amount: totalAmount,
+    amount: payableAmount,
     status: "initiated",
   });
 
   res.json({
     orderId: order._id,
     razorpayOrderId: razorpayOrder.id,
-    amount: totalAmount,
+    amount: payableAmount,
+    deliveryCharge,
     currency: "INR",
   });
 };
 
-// controllers/payment.controller.ts
 export const verifyPayment = async (req: Request, res: Response) => {
   const {
     razorpay_order_id,
@@ -140,11 +151,6 @@ export const verifyPayment = async (req: Request, res: Response) => {
   res.json({ success: true });
 };
 
-
-//user orders get
-
-//user orders get
-
 export const getMyOrders = async (req: Request, res: Response) => {
   const userId = req.user.id;
 
@@ -155,7 +161,6 @@ export const getMyOrders = async (req: Request, res: Response) => {
   res.json(orders);
 };
 
-//get single order
 export const getOrderById = async (req: Request, res: Response) => {
   const { orderId } = req.params;
   const user = (req as any).user;
@@ -167,7 +172,6 @@ export const getOrderById = async (req: Request, res: Response) => {
   if (!order)
     return res.status(404).json({ message: "Order not found" });
 
-  // Basic role-based access control
   const isAdmin = user.role === "admin";
   const isOwner = order.customer._id.toString() === user.id;
   const isAssignedDriver = order.assignedDriver?.toString() === user.id;
@@ -179,7 +183,6 @@ export const getOrderById = async (req: Request, res: Response) => {
   res.json(order);
 };
 
-//cancel order
 export const cancelOrder = async (req: Request, res: Response) => {
   const userId = req.user.id;
   const { orderId } = req.params;
@@ -190,9 +193,7 @@ export const cancelOrder = async (req: Request, res: Response) => {
     return res.status(404).json({ message: "Order not found" });
 
   if (!["pending", "confirmed"].includes(order.status))
-    return res
-      .status(400)
-      .json({ message: "Order cannot be cancelled now" });
+    return res.status(400).json({ message: "Order cannot be cancelled now" });
 
   order.status = "cancelled";
   await order.save();
@@ -205,7 +206,6 @@ export const cancelOrder = async (req: Request, res: Response) => {
   res.json({ success: true, order });
 };
 
-//update order status
 export const updateOrderStatus = async (req: Request, res: Response) => {
   const { orderId } = req.params;
   const { status } = req.body;
@@ -234,7 +234,6 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   res.json(order);
 };
 
-//get all orders
 export const getAllOrders = async (req: Request, res: Response) => {
   const { status, deliveryStatus, from, to } = req.query;
 
@@ -255,38 +254,34 @@ export const getAllOrders = async (req: Request, res: Response) => {
   res.json(orders);
 };
 
-// --- Driver Assignment & Driver Actions ---
-
-// Admin: Assign order to driver
 export const assignOrderToDriver = async (req: Request, res: Response) => {
   const { orderId } = req.params;
   const { driverId } = req.body;
 
-  if (!driverId) return res.status(400).json({ message: "Driver ID is required" });
+  if (!driverId)
+    return res.status(400).json({ message: "Driver ID is required" });
 
   const driver = await User.findOne({ _id: driverId, role: "driver" });
-  if (!driver) return res.status(404).json({ message: "Driver not found" });
+  if (!driver)
+    return res.status(404).json({ message: "Driver not found" });
 
-  if (!driver.isOnline) {
+  if (!driver.isOnline)
     return res.status(400).json({ message: "Driver is currently offline" });
-  }
 
-  if (driver.isReturning) {
+  if (driver.isReturning)
     return res.status(400).json({ message: "Driver is currently returning to store" });
-  }
 
-  // Check if driver has any active orders (assigned or out_for_delivery)
   const activeOrder = await Order.findOne({
     assignedDriver: driverId,
     deliveryStatus: { $in: ["assigned", "out_for_delivery"] }
   });
 
-  if (activeOrder) {
+  if (activeOrder)
     return res.status(400).json({ message: "Driver is already busy with another delivery" });
-  }
 
   const order = await Order.findById(orderId);
-  if (!order) return res.status(404).json({ message: "Order not found" });
+  if (!order)
+    return res.status(404).json({ message: "Order not found" });
 
   order.assignedDriver = driverId as any;
   order.deliveryStatus = "assigned";
@@ -297,7 +292,6 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
   res.json({ message: "Order assigned to driver", order });
 };
 
-// Driver: Get my assigned orders
 export const getDriverOrders = async (req: Request, res: Response) => {
   const driverId = req.user.id;
   const { status, deliveryStatus } = req.query;
@@ -313,24 +307,22 @@ export const getDriverOrders = async (req: Request, res: Response) => {
   res.json(orders);
 };
 
-// Driver: Update order status (limited to delivery flow)
 export const updateOrderByDriver = async (req: Request, res: Response) => {
   const driverId = req.user.id;
-  const { orderId } = req.params;
+  const orderId = Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId;
   const { status } = req.body;
 
   const allowedStatuses = ["out_for_delivery", "delivered", "failed"];
-  if (!allowedStatuses.includes(status)) {
+  if (!allowedStatuses.includes(status))
     return res.status(400).json({ message: "Invalid status for driver" });
-  }
 
   const order = await Order.findOne({ _id: orderId, assignedDriver: driverId });
-  if (!order) return res.status(404).json({ message: "Order not found or not assigned to you" });
+  if (!order)
+    return res.status(404).json({ message: "Order not found or not assigned to you" });
 
   order.deliveryStatus = status as any;
   await order.save();
 
-  // If delivered, check if any other orders are still active
   if (status === "delivered") {
     const remainingOrders = await Order.findOne({
       assignedDriver: driverId,
@@ -339,7 +331,6 @@ export const updateOrderByDriver = async (req: Request, res: Response) => {
     });
 
     if (!remainingOrders) {
-      // No more active orders, set returning status
       await User.findByIdAndUpdate(driverId, { isReturning: true });
     }
   }
