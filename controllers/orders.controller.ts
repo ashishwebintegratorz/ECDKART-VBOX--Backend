@@ -10,7 +10,7 @@ import { confirmOrderLogic } from "../services/order.service.js";
 import User from "../models/User.model.js";
 import { emitOrderStatusUpdate } from "../socket/orderSocket.js";
 import Address from "../models/Address.model.js";
-import { calculateDeliveryCharge } from "../utils/delivery.utils.js";
+import { calculateDeliveryCharge, isWithinIndore } from "../utils/delivery.utils.js";
 
 export const createOrder = async (req: Request, res: Response) => {
   const userId = req.user.id;
@@ -27,6 +27,20 @@ export const createOrder = async (req: Request, res: Response) => {
 
   if (!addressDoc)
     return res.status(404).json({ message: "Address not found" });
+
+  // ✅ Geo Location Check
+  const { location } = addressDoc;
+  if (!location || !location.coordinates || location.coordinates.length < 2) {
+    return res.status(400).json({
+      message: "Location coordinates are required"
+    });
+  }
+  const [lng, lat] = location.coordinates;
+  if (!isWithinIndore(lat, lng)) {
+    return res.status(400).json({
+      message: "Delivery is only available in Indore"
+    });
+  }
 
   // 2️⃣ Get cart
   const cart = await Cart.findOne({ user: userId });
