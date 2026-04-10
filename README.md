@@ -1,4 +1,4 @@
-# 🥬 VegBox Backend
+# 🥬 Backend
 
 A robust, scalable Node.js backend API for VegBox - a vegetable delivery platform with real-time order tracking capabilities.
 
