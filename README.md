@@ -1,6 +1,6 @@
 # 🥬 Backend
 
-A robust, scalable Node.js backend API for VegBox - a vegetable delivery platform with real-time order tracking capabilities.
+A robust, scalable Node.js backend API for VegBox & ECD KART - a vegetable delivery platform with real-time order tracking capabilities.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
