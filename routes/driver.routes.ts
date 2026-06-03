@@ -5,7 +5,9 @@ import {
     getAllDrivers,
     getFreeDrivers,
     toggleOnlineStatus,
-    markReachedStoreStatus
+    markReachedStoreStatus,
+    getDriverRoute,
+    completeDelivery
 } from "../controllers/driver.controller.js";
 
 const router = Router();
@@ -17,5 +19,7 @@ router.get("/free", jwtAuth, requireRole("admin"), getFreeDrivers);
 // Driver Routes
 router.put("/toggle-online", jwtAuth, requireRole("driver"), toggleOnlineStatus);
 router.put("/reached-store", jwtAuth, requireRole("driver"), markReachedStoreStatus);
+router.get("/route", jwtAuth, requireRole("driver"), getDriverRoute);
+router.post("/complete-delivery", jwtAuth, requireRole("driver"), completeDelivery);
 
 export default router;
