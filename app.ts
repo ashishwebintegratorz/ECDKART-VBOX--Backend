@@ -33,7 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 // CORS
 app.use(
   cors({
-    origin: config.FRONTEND_ORIGIN,
+    origin: true,
     credentials: true,
   })
 );

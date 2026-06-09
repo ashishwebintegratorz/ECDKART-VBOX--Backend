@@ -11,8 +11,8 @@ export const sendOtpSchema = z.object({
 
 export const verifyOtpSchema = z.object({
   body: z.object({
-    phone: phoneSchema,
-    code: z.string().length(6, "OTP must be 6 digits"),
+    phone: z.string().min(10, "Valid phone required"),
+    code: z.string().length(4, "OTP must be 4 digits"),
     role: z.enum(["customer", "driver", "admin"]).optional(),
     // For driver/admin first-time or reset pin
     pin: z.string().min(4).max(10).optional(),
