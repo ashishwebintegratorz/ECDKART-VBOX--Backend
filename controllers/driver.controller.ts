@@ -4,6 +4,7 @@ import UserModel from "../models/User.model.js";
 import OrderModel from "../models/Order.model.js";
 import { getRoute } from "../services/ors.service.js";
 import DeliveryHistoryModel from "../models/DeliveryHistory.model.js";
+import cloudinary from "../config/cloudinary.js";
 
 /**
  * Get all drivers with their busy status
@@ -163,6 +164,61 @@ export const completeDelivery = asyncHandler(async (req: Request, res: Response)
     return res.status(201).json({
         message: "Delivery completed and history saved successfully",
         deliveryHistory
+    });
+});
+
+// -------------------------------
+// Cloudinary Upload Helper
+// -------------------------------
+const uploadToCloudinary = (file: Express.Multer.File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder: "drivers" },
+      (err, result) => {
+        if (err || !result) return reject(err);
+        resolve(result.secure_url);
+      }
+    );
+    stream.end(file.buffer);
+  });
+};
+
+/**
+ * Onboard Driver
+ */
+export const onboardDriver = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const { name, upiId } = req.body;
+
+    if (!name || !upiId) {
+        return res.status(400).json({ message: "Name and UPI ID are required" });
+    }
+
+    const file = req.file as Express.Multer.File;
+    if (!file) {
+        return res.status(400).json({ message: "Driving License image is required" });
+    }
+
+    // Upload to cloudinary
+    const drivingLicenseUrl = await uploadToCloudinary(file);
+
+    // Update user profile
+    const updatedUser = await UserModel.findByIdAndUpdate(
+        user._id,
+        {
+            role: "driver",
+            name,
+            driverDetails: {
+                upiId,
+                drivingLicense: drivingLicenseUrl
+            }
+        },
+        { new: true }
+    );
+
+    return res.status(200).json({
+        message: "Driver onboarded successfully",
+        user: updatedUser
     });
 });
 

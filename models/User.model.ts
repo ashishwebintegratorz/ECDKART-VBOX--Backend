@@ -15,6 +15,10 @@ export interface IUser extends Document {
   isReturning: boolean;
   createdAt: Date;
   updatedAt: Date;
+  driverDetails?: {
+    upiId: string;
+    drivingLicense: string;
+  };
   meta?: Record<string, any>;
 }
 
@@ -30,6 +34,10 @@ const UserSchema = new Schema<IUser>(
     addresses: [{ type: Schema.Types.ObjectId, ref: "Address" }],
     isOnline: { type: Boolean, default: false, index: true },
     isReturning: { type: Boolean, default: false, index: true },
+    driverDetails: {
+      upiId: { type: String },
+      drivingLicense: { type: String },
+    },
     meta: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
