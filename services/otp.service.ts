@@ -39,6 +39,11 @@ export async function createAndSendOtp(phone: string) {
     `Your login OTP is ${code}. It is valid for ${OTP_TTL_MINUTES} minutes.`
   );
 
+  // LOG OTP FOR LOCAL DEVELOPMENT/TESTING
+  console.log(`\n========================================`);
+  console.log(`🔑 OTP for ${phone} is: ${code}`);
+  console.log(`========================================\n`);
+
   //  ************************** */
   //  ************************** */
 
