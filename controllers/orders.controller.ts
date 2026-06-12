@@ -286,7 +286,7 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
   const orders = await Order.find(query)
     .sort({ createdAt: -1 })
-    .populate("customer", "name email");
+    .populate("customer", "name email phone avatar");
 
   res.json(orders);
 };
@@ -304,9 +304,6 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
 
   if (!driver.isOnline)
     return res.status(400).json({ message: "Driver is currently offline" });
-
-  if (driver.isReturning)
-    return res.status(400).json({ message: "Driver is currently returning to store" });
 
   const activeOrder = await Order.findOne({
     assignedDriver: driverId,
@@ -327,7 +324,7 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
   await order.save();
   await driver.save();
 
-  const { emitOrderToDriver } = require("../socket/orderSocket.js");
+  const { emitOrderToDriver } = await import("../socket/orderSocket.js");
   
   // Re-fetch populated order to send to driver
   const populatedOrder = await Order.findById(orderId).populate("customer", "name phone").exec();

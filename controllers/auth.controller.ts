@@ -71,7 +71,13 @@ export const loginWithPin = asyncHandler(
   async (req: Request, res: Response) => {
     const { phone, pin } = req.body;
 
-    const user = await UserModel.findOne({ phone });
+    // Check for exact match (e.g. +918109470520) OR without prefix (e.g. 8109470520)
+    let searchPhones = [phone];
+    if (phone.startsWith("+91")) {
+      searchPhones.push(phone.substring(3));
+    }
+
+    const user = await UserModel.findOne({ phone: { $in: searchPhones } });
     if (!user) throw new NotFoundException("User not found");
 
     if (user.role !== "driver" && user.role !== "admin") {

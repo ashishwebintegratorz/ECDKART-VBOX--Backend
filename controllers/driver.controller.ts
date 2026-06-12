@@ -68,6 +68,38 @@ export const toggleOnlineStatus = asyncHandler(async (req: Request, res: Respons
 });
 
 /**
+ * Update Driver Location
+ */
+export const updateDriverLocation = asyncHandler(async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const { lat, lng, speed, heading } = req.body;
+
+    if (lat === undefined || lng === undefined) {
+        return res.status(400).json({ message: "Latitude and longitude are required" });
+    }
+
+    const DriverLocationModel = (await import("../models/DriverLocation.model.js")).default;
+
+    const locationData = {
+        driver: user._id,
+        location: {
+            type: "Point",
+            coordinates: [lng, lat] // GeoJSON expects [longitude, latitude]
+        },
+        speed,
+        heading
+    };
+
+    const updatedLocation = await DriverLocationModel.findOneAndUpdate(
+        { driver: user._id },
+        locationData,
+        { new: true, upsert: true }
+    );
+
+    return res.json({ message: "Location updated successfully", location: updatedLocation });
+});
+
+/**
  * Mark driver as reached store (reset isReturning)
  */
 export const markReachedStoreStatus = asyncHandler(async (req: Request, res: Response) => {
@@ -195,6 +227,13 @@ export const onboardDriver = asyncHandler(async (req: Request, res: Response) =>
         return res.status(400).json({ message: "Driving License image is required" });
     }
 
+    // Ensure phone has country code prefix
+    let formattedPhone = phone;
+    if (!formattedPhone.startsWith("+")) {
+        // Assume India +91 if no prefix
+        formattedPhone = `+91${formattedPhone.replace(/^0+/, '')}`;
+    }
+
     // Hash the PIN
     const salt = await bcrypt.genSalt(10);
     const pinHash = await bcrypt.hash(pin, salt);
@@ -204,7 +243,7 @@ export const onboardDriver = asyncHandler(async (req: Request, res: Response) =>
 
     // Find or create user by phone
     const updatedUser = await UserModel.findOneAndUpdate(
-        { phone },
+        { phone: formattedPhone },
         {
             $set: {
                 role: "driver",
