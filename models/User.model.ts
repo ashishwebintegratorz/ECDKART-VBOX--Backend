@@ -13,11 +13,13 @@ export interface IUser extends Document {
   addresses?: Types.ObjectId[];
   isOnline: boolean;
   isReturning: boolean;
+  isBlocked: boolean;
   createdAt: Date;
   updatedAt: Date;
   driverDetails?: {
     upiId: string;
     drivingLicense: string;
+    driverId?: string;
   };
   meta?: Record<string, any>;
 }
@@ -34,9 +36,11 @@ const UserSchema = new Schema<IUser>(
     addresses: [{ type: Schema.Types.ObjectId, ref: "Address" }],
     isOnline: { type: Boolean, default: false, index: true },
     isReturning: { type: Boolean, default: false, index: true },
+    isBlocked: { type: Boolean, default: false },
     driverDetails: {
       upiId: { type: String },
       drivingLicense: { type: String },
+      driverId: { type: String },
     },
     meta: { type: Schema.Types.Mixed },
   },

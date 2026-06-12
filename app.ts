@@ -18,7 +18,8 @@ import razorpayRoutes from "./routes/razorpay.routes.js";
 import driverRoutes from "./routes/driver.routes.js";
 import invoiceRoutes from "./routes/invoice.routes.js";
 import reviewRoutes from "./routes/review.routes.js"
-
+import zoneRoutes from "./routes/zone.route.js"
+import settingRoutes from "./routes/setting.route.js"
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -62,6 +63,8 @@ app.use(`${BASE_PATH}/wishlist`, wishlistRoutes);
 app.use(`${BASE_PATH}/drivers`, driverRoutes);
 app.use(`${BASE_PATH}/invoices`, invoiceRoutes);
 app.use(`${BASE_PATH}/reviews`, reviewRoutes);
+app.use(`${BASE_PATH}/zones`, zoneRoutes);
+app.use(`${BASE_PATH}/settings`, settingRoutes);
 
 // app.use(`${BASE_PATH}/razorpay`, razorpayRoutes); // Moved up
 

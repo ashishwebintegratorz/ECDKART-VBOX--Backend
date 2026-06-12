@@ -58,7 +58,7 @@ export const removeFromWishlist = async (req: Request, res: Response) => {
     const userId = req.user.id;
     const { productId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(productId)) {
+    if (!mongoose.Types.ObjectId.isValid(productId as string)) {
       return res.status(400).json({
         success: false,
         message: "Invalid product ID",

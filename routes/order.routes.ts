@@ -4,7 +4,8 @@ import { jwtAuth } from "../middlewares/jwtAuth.middleware.js"; // user auth
 //import { authDriver } from "../middlewares/driverAuth.middleware.js"; // if you separate drivers
 import {
   createOrder, verifyPayment, getMyOrders, getOrderById, cancelOrder, updateOrderStatus, getAllOrders,
-  assignOrderToDriver, getDriverOrders, updateOrderByDriver
+  assignOrderToDriver, getDriverOrders, getActiveDriverOrders, getDriverOrderHistory, updateOrderByDriver,
+  acceptOrderBroadcast, declineOrderBroadcast
 } from "../controllers/orders.controller.js";
 import { requireRole } from "../middlewares/role.middleware.js";
 const router = Router();
@@ -73,12 +74,44 @@ router.get(
   asyncHandler(getDriverOrders)
 );
 
+// Driver: Get active orders
+router.get(
+  "/driver/active",
+  jwtAuth,
+  requireRole("driver"),
+  asyncHandler(getActiveDriverOrders)
+);
+
+// Driver: Get order history
+router.get(
+  "/driver/history",
+  jwtAuth,
+  requireRole("driver"),
+  asyncHandler(getDriverOrderHistory)
+);
+
 // Driver: Update order status
 router.put(
   "/driver/update-status/:orderId",
   jwtAuth,
   requireRole("driver"),
   asyncHandler(updateOrderByDriver)
+);
+
+// Driver: Accept broadcasted order
+router.patch(
+  "/driver/accept/:orderId",
+  jwtAuth,
+  requireRole("driver"),
+  asyncHandler(acceptOrderBroadcast)
+);
+
+// Driver: Decline broadcasted order
+router.patch(
+  "/driver/decline/:orderId",
+  jwtAuth,
+  requireRole("driver"),
+  asyncHandler(declineOrderBroadcast)
 );
 
 export default router;

@@ -16,6 +16,17 @@ export function initOrderSocket(instance: Server) {
       console.log(`${socket.id} joined order_${orderId}`);
     });
 
+    socket.on("join_online_drivers", () => {
+      socket.join("online_drivers");
+      console.log(`${socket.id} joined online_drivers room`);
+    });
+
+    socket.on("joinDriver", (driverId: string) => {
+      if (!driverId) return;
+      socket.join(`driver_${driverId}`);
+      console.log(`${socket.id} joined driver_${driverId}`);
+    });
+
     socket.on("leaveOrder", (orderId: string) => {
       if (!orderId) return;
       socket.leave(`order_${orderId}`);
@@ -28,6 +39,15 @@ export function initOrderSocket(instance: Server) {
   });
 }
 
+export function broadcastNewOrder(orderData: any) {
+  if (!io) {
+    console.warn("IO not initialized");
+    return;
+  }
+  io.to("online_drivers").emit("new_order_broadcast", orderData);
+  console.log(`[Socket] Broadcasted new_order_broadcast to online_drivers for Order ${orderData._id}`);
+}
+
 export function emitOrderStatusUpdate(orderId: string, payload: any) {
   if (!io) {
     console.warn("IO not initialized");
@@ -35,4 +55,13 @@ export function emitOrderStatusUpdate(orderId: string, payload: any) {
   }
   io.to(`order_${orderId}`).emit("orderStatusUpdated", { orderId, ...payload });
   io.to("admins").emit("orderStatusChanged", { orderId, ...payload });
+}
+
+export function emitOrderToDriver(driverId: string, orderData: any) {
+  if (!io) {
+    console.warn("IO not initialized");
+    return;
+  }
+  io.to(`driver_${driverId}`).emit("new_order_broadcast", orderData);
+  console.log(`[Socket] Assigned order directly to driver_${driverId}`);
 }

@@ -3,6 +3,7 @@ import Cart from "../models/Cart.model.js";
 import Product from "../models/Product.model.js";
 import Invoice from "../models/Invoice.model.js";
 import PaymentTransaction from "../models/PaymentTransaction.model.js";
+import { broadcastNewOrder } from "../socket/orderSocket.js";
 
 /**
  * Logic to run when an order is confirmed (either via COD, Payment Verification or Webhook)
@@ -53,5 +54,19 @@ export const confirmOrderLogic = async (orderId: string) => {
         console.log(`[confirmOrderLogic] Invoice generated successfully`);
     } else {
         console.log(`[confirmOrderLogic] Invoice already exists`);
+    }
+
+    // 5. Broadcast new order to online drivers
+    if (order.deliveryStatus === "pending" && order.assignmentStatus !== "assigned") {
+        order.assignmentStatus = "broadcasting";
+        await order.save();
+        
+        // Populate customer and address details so driver can see them
+        const populatedOrder = await Order.findById(orderId)
+            .populate("customer", "name phone")
+            .exec();
+            
+        console.log(`[confirmOrderLogic] Order confirmed, waiting for admin assignment`);
+        // broadcastNewOrder(populatedOrder); // Removed auto-broadcast
     }
 };

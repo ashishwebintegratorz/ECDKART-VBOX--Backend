@@ -5,22 +5,23 @@ import OrderModel from "../models/Order.model.js";
 import { getRoute } from "../services/ors.service.js";
 import DeliveryHistoryModel from "../models/DeliveryHistory.model.js";
 import cloudinary from "../config/cloudinary.js";
+import bcrypt from "bcrypt";
 
 /**
  * Get all drivers with their busy status
  */
 export const getAllDrivers = asyncHandler(async (req: Request, res: Response) => {
-    const drivers = await UserModel.find({ role: "driver" }).select("name phone email avatar isOnline isReturning");
+    const drivers = await UserModel.find({ role: "driver" }).select("name phone email avatar isOnline isReturning driverDetails");
 
-    const enhancedDrivers = await Promise.all(drivers.map(async (driver) => {
-        const activeOrder = await OrderModel.findOne({
-            assignedDriver: driver._id,
-            deliveryStatus: { $in: ["assigned", "out_for_delivery"] }
-        });
-        return {
-            ...driver.toObject(),
-            isBusy: !!activeOrder || driver.isReturning
-        };
+    const activeOrders = await OrderModel.find({
+        deliveryStatus: { $in: ["assigned", "out_for_delivery"] }
+    }).select("assignedDriver");
+
+    const busyDriverIds = new Set(activeOrders.map(order => order.assignedDriver?.toString()));
+
+    const enhancedDrivers = drivers.map(driver => ({
+        ...driver.toObject(),
+        isBusy: busyDriverIds.has(driver._id.toString()) || driver.isReturning
     }));
 
     return res.json(enhancedDrivers);
@@ -32,21 +33,16 @@ export const getAllDrivers = asyncHandler(async (req: Request, res: Response) =>
 export const getFreeDrivers = asyncHandler(async (req: Request, res: Response) => {
     const onlineDrivers = await UserModel.find({ role: "driver", isOnline: true }).select("name phone email avatar isOnline isReturning");
 
-    const freeDrivers = [];
+    const activeOrders = await OrderModel.find({
+        deliveryStatus: { $in: ["assigned", "out_for_delivery"] }
+    }).select("assignedDriver");
 
-    for (const driver of onlineDrivers) {
-        const activeOrder = await OrderModel.findOne({
-            assignedDriver: driver._id,
-            deliveryStatus: { $in: ["assigned", "out_for_delivery"] }
-        });
+    const busyDriverIds = new Set(activeOrders.map(order => order.assignedDriver?.toString()));
 
-        if (!activeOrder && !driver.isReturning) {
-            freeDrivers.push({
-                ...driver.toObject(),
-                isBusy: false
-            });
-        }
-    }
+    const freeDrivers = onlineDrivers.filter(driver => {
+        const isBusy = busyDriverIds.has(driver._id.toString());
+        return !isBusy && !driver.isReturning;
+    }).map(driver => driver.toObject());
 
     return res.json(freeDrivers);
 });
@@ -187,11 +183,11 @@ const uploadToCloudinary = (file: Express.Multer.File): Promise<string> => {
  * Onboard Driver
  */
 export const onboardDriver = asyncHandler(async (req: Request, res: Response) => {
-    const user = (req as any).user;
-    const { name, upiId } = req.body;
+    // Admin is making the request, so we don't use req.user._id to update.
+    const { name, upiId, phone, pin, driverId } = req.body;
 
-    if (!name || !upiId) {
-        return res.status(400).json({ message: "Name and UPI ID are required" });
+    if (!name || !upiId || !phone || !pin) {
+        return res.status(400).json({ message: "Name, phone, PIN, and UPI ID are required" });
     }
 
     const file = req.file as Express.Multer.File;
@@ -199,21 +195,29 @@ export const onboardDriver = asyncHandler(async (req: Request, res: Response) =>
         return res.status(400).json({ message: "Driving License image is required" });
     }
 
+    // Hash the PIN
+    const salt = await bcrypt.genSalt(10);
+    const pinHash = await bcrypt.hash(pin, salt);
+
     // Upload to cloudinary
     const drivingLicenseUrl = await uploadToCloudinary(file);
 
-    // Update user profile
-    const updatedUser = await UserModel.findByIdAndUpdate(
-        user._id,
+    // Find or create user by phone
+    const updatedUser = await UserModel.findOneAndUpdate(
+        { phone },
         {
-            role: "driver",
-            name,
-            driverDetails: {
-                upiId,
-                drivingLicense: drivingLicenseUrl
+            $set: {
+                role: "driver",
+                name,
+                pinHash,
+                driverDetails: {
+                    upiId,
+                    drivingLicense: drivingLicenseUrl,
+                    driverId
+                }
             }
         },
-        { new: true }
+        { new: true, upsert: true }
     );
 
     return res.status(200).json({
@@ -222,3 +226,98 @@ export const onboardDriver = asyncHandler(async (req: Request, res: Response) =>
     });
 });
 
+/**
+ * Get Today's Driver Summary
+ */
+export const getDriverSummary = asyncHandler(async (req: Request, res: Response) => {
+  const driverId = req.user.id;
+  
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const endOfDay = new Date();
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const todayOrders = await OrderModel.find({
+    assignedDriver: driverId,
+    deliveryStatus: "delivered",
+    updatedAt: { $gte: startOfDay, $lte: endOfDay }
+  });
+
+  const orders_completed = todayOrders.length;
+  // Calculate earnings, defaulting to 40 per order
+  const earnings = todayOrders.reduce((sum, order) => sum + ((order as any).deliveryFee || 40), 0);
+
+  res.json({
+    earnings,
+    orders_completed,
+    ride_time_seconds: 0
+  });
+});
+
+/**
+ * Admin: Get Driver Details
+ */
+export const getDriverDetails = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const driver = await UserModel.findOne({ _id: id, role: "driver" });
+    
+    if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+    }
+
+    // Get lifetime stats
+    const allOrders = await OrderModel.find({ assignedDriver: id, deliveryStatus: "delivered" });
+    const totalOrders = allOrders.length;
+    const totalEarnings = allOrders.reduce((sum, order) => sum + ((order as any).deliveryFee || 40), 0);
+
+    return res.json({
+        driver,
+        stats: {
+            totalOrders,
+            totalEarnings
+        }
+    });
+});
+
+/**
+ * Admin: Update Driver Details
+ */
+export const updateDriverDetails = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { name, phone, upiId, driverId } = req.body;
+
+    const driver = await UserModel.findOne({ _id: id, role: "driver" });
+    if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+    }
+
+    if (name) driver.name = name;
+    if (phone) driver.phone = phone;
+    if (upiId && driver.driverDetails) {
+        driver.driverDetails.upiId = upiId;
+    }
+    if (driverId && driver.driverDetails) {
+        driver.driverDetails.driverId = driverId;
+    }
+
+    await driver.save();
+    return res.json({ message: "Driver updated successfully", driver });
+});
+
+/**
+ * Admin: Delete Driver
+ */
+export const deleteDriver = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    
+    const driver = await UserModel.findOne({ _id: id, role: "driver" });
+    if (!driver) {
+        return res.status(404).json({ message: "Driver not found" });
+    }
+
+    // Unassign pending orders? Optionally handle here.
+    
+    await UserModel.findByIdAndDelete(id);
+    return res.json({ message: "Driver deleted successfully" });
+});

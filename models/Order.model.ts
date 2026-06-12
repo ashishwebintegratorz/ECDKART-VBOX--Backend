@@ -19,6 +19,8 @@ export type DeliveryStatus =
 export interface IOrderItem {
   product: Types.ObjectId;
   name?: string;
+  image?: string;
+  unit?: string;
   variantIndex?: number;
   qty: number;
   price: number; // final price per unit at time of order
@@ -34,8 +36,12 @@ export interface IOrder extends Document {
   address: Types.ObjectId | any; // denormalized address snapshot or ref
   status: OrderStatus;
   deliveryStatus: DeliveryStatus;
+  scheduleDate?: string;
+  timeSlot?: string;
+  assignmentStatus?: string;
+  rejectedBy?: Types.ObjectId[];
   assignedDriver?: Types.ObjectId;
-  assignmentId?: Types.ObjectId; // reference to Assignment
+  assignmentId?: Types.ObjectId;
   paymentTransaction?: Types.ObjectId;
   meta?: Record<string, any>;
   createdAt: Date;
@@ -46,6 +52,8 @@ const OrderItemSchema = new Schema<IOrderItem>(
   {
     product: { type: Schema.Types.ObjectId, ref: "Product", required: true },
     name: { type: String },
+    image: { type: String },
+    unit: { type: String },
     variantIndex: { type: Number },
     qty: { type: Number, default: 1 },
     price: { type: Number, required: true },
@@ -64,6 +72,10 @@ const OrderSchema = new Schema<IOrder>(
     address: { type: Schema.Types.Mixed, required: true }, // store snapshot: {fullAddress, location, phone}
     status: { type: String, default: "pending", index: true },
     deliveryStatus: { type: String, default: "pending", index: true },
+    scheduleDate: { type: String },
+    timeSlot: { type: String },
+    assignmentStatus: { type: String, default: "pending" },
+    rejectedBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     assignedDriver: { type: Schema.Types.ObjectId, ref: "User" },
     assignmentId: { type: Schema.Types.ObjectId, ref: "Assignment" },
     paymentTransaction: { type: Schema.Types.ObjectId, ref: "PaymentTransaction" },

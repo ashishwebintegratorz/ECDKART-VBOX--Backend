@@ -14,60 +14,71 @@ import { calculateDeliveryCharge, isWithinIndore } from "../utils/delivery.utils
 
 export const createOrder = async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { addressId, paymentMethod } = req.body;
+  const { addressId, deliveryAddress, paymentMethod, scheduleDate, timeSlot, items, totalAmount: reqTotalAmount } = req.body;
 
-  if (!addressId)
-    return res.status(400).json({ message: "Address is required" });
+  let addressSnapshot: any = {
+    fullAddress: deliveryAddress || "123 Main Street, Indore",
+    city: "Indore",
+    state: "MP",
+    zipCode: "452001",
+    location: {
+      type: "Point",
+      coordinates: [75.8577, 22.7196] // Indore coordinates
+    }
+  };
 
-  // 1️⃣ Fetch & validate address
-  const addressDoc = await Address.findOne({
-    _id: addressId,
-    user: userId,
-  });
-
-  if (!addressDoc)
-    return res.status(404).json({ message: "Address not found" });
-
-  // ✅ Geo Location Check
-  const { location } = addressDoc;
-  if (!location || !location.coordinates || location.coordinates.length < 2) {
-    return res.status(400).json({
-      message: "Location coordinates are required"
+  if (addressId) {
+    // 1️⃣ Fetch & validate address if addressId is provided
+    const addressDoc = await Address.findOne({
+      _id: addressId,
+      user: userId,
     });
-  }
-  const [lng, lat] = location.coordinates;
-  if (!isWithinIndore(lat, lng)) {
-    return res.status(400).json({
-      message: "Delivery is only available in Indore"
-    });
+
+    if (addressDoc) {
+      // ✅ Geo Location Check
+      const { location } = addressDoc;
+      if (location && location.coordinates && location.coordinates.length >= 2) {
+        const [lng, lat] = location.coordinates;
+        if (!(await isWithinIndore(lat, lng))) {
+          return res.status(400).json({
+            message: "Delivery is only available in Indore"
+          });
+        }
+      }
+
+      addressSnapshot = {
+        fullAddress: addressDoc.fullAddress,
+        apartment: addressDoc.apartment,
+        landmark: addressDoc.landmark,
+        location: addressDoc.location,
+        phone: addressDoc.phone,
+      };
+    }
+  } else if (!deliveryAddress) {
+     return res.status(400).json({ message: "Delivery address is required" });
   }
 
   // 2️⃣ Get cart
+  let cartItems = [];
+  let totalAmount = 0;
+
   const cart = await Cart.findOne({ user: userId });
-  if (!cart || cart.items.length === 0)
+  if (cart && cart.items.length > 0) {
+    cartItems = cart.items;
+    totalAmount = cartItems.reduce((s: any, i: any) => s + i.priceAtAdd * i.qty, 0);
+  } else if (items && items.length > 0) {
+    cartItems = items;
+    totalAmount = reqTotalAmount || cartItems.reduce((s: any, i: any) => s + i.priceAtAdd * i.qty, 0);
+  } else {
     return res.status(400).json({ message: "Cart empty" });
-
-  // 3️⃣ Snapshot address
-  const addressSnapshot = {
-    fullAddress: addressDoc.fullAddress,
-    apartment: addressDoc.apartment,
-    landmark: addressDoc.landmark,
-    location: addressDoc.location,
-    phone: addressDoc.phone,
-  };
-
-  // 4️⃣ Calculate amount
-  const totalAmount = cart.items.reduce(
-    (s, i) => s + i.priceAtAdd * i.qty,
-    0
-  );
-
-  // ✅ Min order check
-  if (totalAmount < 100) {
-    return res.status(400).json({
-      message: "Minimum order amount is ₹100"
-    });
   }
+
+  // ✅ Min order check (Disabled for demo)
+  // if (totalAmount < 100) {
+  //   return res.status(400).json({
+  //     message: "Minimum order amount is ₹100"
+  //   });
+  // }
 
   // ✅ Delivery charge
   const deliveryCharge = calculateDeliveryCharge(totalAmount);
@@ -77,9 +88,11 @@ export const createOrder = async (req: Request, res: Response) => {
   const order = await Order.create({
     orderNumber: `ORD-${Date.now()}`,
     customer: userId,
-    items: cart.items.map(i => ({
+    items: cartItems.map((i: any) => ({
       product: i.product,
       name: i.name,
+      image: i.image,
+      unit: i.unit,
       variantIndex: i.variantIndex,
       qty: i.qty,
       price: i.priceAtAdd,
@@ -91,6 +104,9 @@ export const createOrder = async (req: Request, res: Response) => {
     address: addressSnapshot,
     status: "pending",
     deliveryStatus: "pending",
+    scheduleDate,
+    timeSlot,
+    assignmentStatus: "pending",
   });
 
   // 6️⃣ COD flow
@@ -180,7 +196,8 @@ export const getOrderById = async (req: Request, res: Response) => {
   const user = (req as any).user;
 
   const order = await Order.findById(orderId)
-    .populate("customer", "name email")
+    .populate("customer", "name email phone avatar")
+    .populate("items.product", "name variants images")
     .populate("paymentTransaction");
 
   if (!order)
@@ -222,23 +239,29 @@ export const cancelOrder = async (req: Request, res: Response) => {
 
 export const updateOrderStatus = async (req: Request, res: Response) => {
   const { orderId } = req.params;
-  const { status } = req.body;
+  const { status, deliveryStatus } = req.body;
 
   const allowedStatus = [
+    "pending",
     "confirmed",
     "preparing",
     "ready",
     "out_for_delivery",
     "delivered",
+    "cancelled",
     "failed",
   ];
 
-  if (!allowedStatus.includes(status))
+  if (status && !allowedStatus.includes(status))
     return res.status(400).json({ message: "Invalid status" });
+
+  const updatePayload: any = {};
+  if (status) updatePayload.status = status;
+  if (deliveryStatus) updatePayload.deliveryStatus = deliveryStatus;
 
   const order = await Order.findByIdAndUpdate(
     orderId,
-    { status },
+    updatePayload,
     { new: true }
   );
 
@@ -299,9 +322,16 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
 
   order.assignedDriver = driverId as any;
   order.deliveryStatus = "assigned";
+  order.assignmentStatus = "assigned";
   driver.isReturning = true;
   await order.save();
   await driver.save();
+
+  const { emitOrderToDriver } = require("../socket/orderSocket.js");
+  
+  // Re-fetch populated order to send to driver
+  const populatedOrder = await Order.findById(orderId).populate("customer", "name phone").exec();
+  emitOrderToDriver(driverId as string, populatedOrder);
 
   res.json({ message: "Order assigned to driver", order });
 };
@@ -318,6 +348,30 @@ export const getDriverOrders = async (req: Request, res: Response) => {
     .sort({ createdAt: -1 })
     .populate("customer", "name phone");
 
+  res.json(orders);
+};
+
+export const getActiveDriverOrders = async (req: Request, res: Response) => {
+  const driverId = req.user.id;
+  const orders = await Order.find({ 
+    assignedDriver: driverId, 
+    deliveryStatus: { $in: ["assigned", "out_for_delivery"] } 
+  })
+  .sort({ createdAt: -1 })
+  .populate("customer", "name phone");
+  
+  res.json(orders);
+};
+
+export const getDriverOrderHistory = async (req: Request, res: Response) => {
+  const driverId = req.user.id;
+  const orders = await Order.find({ 
+    assignedDriver: driverId, 
+    deliveryStatus: "delivered" 
+  })
+  .sort({ createdAt: -1 })
+  .populate("customer", "name phone");
+  
   res.json(orders);
 };
 
@@ -349,11 +403,60 @@ export const updateOrderByDriver = async (req: Request, res: Response) => {
     }
   }
 
-  emitOrderStatusUpdate(orderId, {
+  emitOrderStatusUpdate(orderId as string, {
     status: order.status,
     deliveryStatus: order.deliveryStatus,
     updatedAt: (order as any).updatedAt,
   });
 
   res.json({ message: `Order status updated to ${status}`, order });
+};
+
+export const acceptOrderBroadcast = async (req: Request, res: Response) => {
+  const driverId = req.user.id;
+  const { orderId } = req.params;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ message: "Order not found" });
+
+  if (order.assignmentStatus === "assigned" || order.assignedDriver) {
+    return res.status(400).json({ message: "Order has already been assigned to another driver" });
+  }
+
+  const driver = await User.findById(driverId);
+  if (!driver) return res.status(404).json({ message: "Driver not found" });
+
+  order.assignedDriver = driverId as any;
+  order.assignmentStatus = "assigned";
+  order.deliveryStatus = "assigned";
+  await order.save();
+  
+  driver.isReturning = true; // They are busy now
+  await driver.save();
+
+  // Notify admin & user
+  emitOrderStatusUpdate(orderId as string, {
+    status: order.status,
+    deliveryStatus: order.deliveryStatus,
+    assignmentStatus: order.assignmentStatus,
+    updatedAt: (order as any).updatedAt,
+  });
+
+  res.json({ message: "Order accepted successfully", order });
+};
+
+export const declineOrderBroadcast = async (req: Request, res: Response) => {
+  const driverId = req.user.id;
+  const { orderId } = req.params;
+
+  const order = await Order.findById(orderId);
+  if (!order) return res.status(404).json({ message: "Order not found" });
+
+  if (!order.rejectedBy) order.rejectedBy = [];
+  if (!order.rejectedBy.includes(driverId as any)) {
+    order.rejectedBy.push(driverId as any);
+    await order.save();
+  }
+
+  res.json({ message: "Order declined" });
 };

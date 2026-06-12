@@ -20,11 +20,26 @@ export const jwtAuth = async (
     }
 
     const token = parts[1];
-    const payload: any = verifyAccessJwt(token);
+    let payload: any;
+    try {
+      payload = verifyAccessJwt(token);
+    } catch (jwtErr) {
+      throw new UnauthorizedException("Invalid or expired token");
+    }
 
-    const user = await UserModel.findById(payload.sub);
+    let user;
+    try {
+      user = await UserModel.findById(payload.sub);
+    } catch (e) {
+      throw new UnauthorizedException("Invalid user id format");
+    }
+
     if (!user) {
       throw new UnauthorizedException("User not found");
+    }
+
+    if (user.isBlocked) {
+      throw new UnauthorizedException("Your account has been blocked by the admin.");
     }
 
     (req as any).user = user;
