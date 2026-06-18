@@ -2,6 +2,7 @@ import express from "express";
 import {
   getZones,
   getActiveZones,
+  checkServiceability,
   createZone,
   updateZone,
   deleteZone
@@ -14,6 +15,9 @@ const router = express.Router();
 // Public route for fetching zones
 router.route("/active")
   .get(getActiveZones);
+
+router.route("/check-serviceability")
+  .post(checkServiceability);
 
 router.route("/")
   .get(getZones);

@@ -71,3 +71,33 @@ export const deleteZone = asyncHandler(async (req: Request, res: Response) => {
 
 // Public route for App
 export const getActiveZones = asyncHandler(async (req: Request, res: Response) => { const zones = await Zone.find({ isActive: true }); res.status(200).json({ success: true, data: zones }); });
+
+// Check if a point is within active zones
+export const checkServiceability = asyncHandler(async (req: Request, res: Response) => {
+  const { lat, lng } = req.body;
+  if (!lat || !lng) {
+    res.status(400);
+    throw new Error('Latitude and longitude are required');
+  }
+  
+  const latitude = parseFloat(lat);
+  const longitude = parseFloat(lng);
+  
+  const zone = await Zone.findOne({
+    isActive: true,
+    boundary: {
+      $geoIntersects: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [longitude, latitude]
+        }
+      }
+    }
+  });
+  
+  if (zone) {
+    res.status(200).json({ success: true, serviceable: true, zone: zone.name });
+  } else {
+    res.status(200).json({ success: true, serviceable: false });
+  }
+});
