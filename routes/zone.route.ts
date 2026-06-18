@@ -10,11 +10,15 @@ import { requireRole } from "../middlewares/role.middleware.js";
 
 const router = express.Router();
 
+// Public route for fetching zones
+router.route("/")
+  .get(getZones);
+
+// Admin routes
 router.use(jwtAuth);
 router.use(requireRole("admin"));
 
 router.route("/")
-  .get(getZones)
   .post(createZone);
 
 router.route("/:id")
