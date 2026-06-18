@@ -71,11 +71,10 @@ export const loginWithPin = asyncHandler(
   async (req: Request, res: Response) => {
     const { phone, pin } = req.body;
 
-    // Check for exact match (e.g. +918109470520) OR without prefix (e.g. 8109470520)
     let searchPhones = [phone];
     if (phone.startsWith("+91")) {
       searchPhones.push(phone.substring(3));
-    } else {
+    } else if (!phone.startsWith("+")) {
       searchPhones.push(`+91${phone}`);
     }
 
