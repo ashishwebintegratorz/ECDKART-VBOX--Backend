@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getZones,
+  getActiveZones,
   createZone,
   updateZone,
   deleteZone
@@ -11,6 +12,9 @@ import { requireRole } from "../middlewares/role.middleware.js";
 const router = express.Router();
 
 // Public route for fetching zones
+router.route("/active")
+  .get(getActiveZones);
+
 router.route("/")
   .get(getZones);
 

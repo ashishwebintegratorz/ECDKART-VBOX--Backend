@@ -67,3 +67,7 @@ export const deleteZone = asyncHandler(async (req: Request, res: Response) => {
   
   res.status(200).json({ success: true, message: "Zone removed successfully" });
 });
+
+
+// Public route for App
+export const getActiveZones = asyncHandler(async (req: Request, res: Response) => { const zones = await Zone.find({ isActive: true }); res.status(200).json({ success: true, data: zones }); });

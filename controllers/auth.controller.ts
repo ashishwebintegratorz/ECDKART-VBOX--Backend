@@ -75,6 +75,8 @@ export const loginWithPin = asyncHandler(
     let searchPhones = [phone];
     if (phone.startsWith("+91")) {
       searchPhones.push(phone.substring(3));
+    } else {
+      searchPhones.push(`+91${phone}`);
     }
 
     const user = await UserModel.findOne({ phone: { $in: searchPhones } });
@@ -84,13 +86,15 @@ export const loginWithPin = asyncHandler(
       throw new BadRequestException("PIN login is only for driver/admin");
     }
 
-    if (!user.pinHash) {
+    const userPinHash = user.pinHash || user.get("password");
+
+    if (!userPinHash) {
       throw new BadRequestException(
         "PIN not set. Login via OTP first to set PIN."
       );
     }
 
-    const ok = await bcrypt.compare(pin, user.pinHash);
+    const ok = await bcrypt.compare(pin, userPinHash);
     if (!ok) throw new UnauthorizedException("Invalid PIN");
 
     const auth = createAuthTokens(user);
