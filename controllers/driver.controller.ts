@@ -21,7 +21,7 @@ export const getAllDrivers = asyncHandler(async (req: Request, res: Response) =>
 
     const enhancedDrivers = drivers.map(driver => ({
         ...driver.toObject(),
-        isBusy: busyDriverIds.has(driver._id.toString()) || driver.isReturning
+        isBusy: busyDriverIds.has(driver._id.toString())
     }));
 
     return res.json(enhancedDrivers);
@@ -41,7 +41,7 @@ export const getFreeDrivers = asyncHandler(async (req: Request, res: Response) =
 
     const freeDrivers = onlineDrivers.filter(driver => {
         const isBusy = busyDriverIds.has(driver._id.toString());
-        return !isBusy && !driver.isReturning;
+        return !isBusy;
     }).map(driver => driver.toObject());
 
     return res.json(freeDrivers);
