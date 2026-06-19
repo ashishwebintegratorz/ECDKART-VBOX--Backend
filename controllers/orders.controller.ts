@@ -410,11 +410,20 @@ export const updateOrderByDriver = async (req: Request, res: Response) => {
 };
 
 export const acceptOrderBroadcast = async (req: Request, res: Response) => {
-  const driverId = req.user.id;
+  const driverId = (req as any).user._id.toString();
   const { orderId } = req.params;
 
   const order = await Order.findById(orderId);
   if (!order) return res.status(404).json({ message: "Order not found" });
+
+  console.log("acceptOrderBroadcast CALLED:");
+  console.log("driverId:", driverId);
+  console.log("order.assignedDriver:", order.assignedDriver);
+  console.log("order.assignmentStatus:", order.assignmentStatus);
+
+  if (order.assignedDriver && order.assignedDriver.toString() === driverId) {
+    return res.status(200).json({ success: true, message: "Order accepted successfully", order });
+  }
 
   if (order.assignmentStatus === "assigned" || order.assignedDriver) {
     return res.status(400).json({ message: "Order has already been assigned to another driver" });
@@ -427,9 +436,6 @@ export const acceptOrderBroadcast = async (req: Request, res: Response) => {
   order.assignmentStatus = "assigned";
   order.deliveryStatus = "assigned";
   await order.save();
-  
-  driver.isReturning = true; // They are busy now
-  await driver.save();
 
   // Notify admin & user
   emitOrderStatusUpdate(orderId as string, {
