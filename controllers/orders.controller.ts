@@ -286,7 +286,8 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
   const orders = await Order.find(query)
     .sort({ createdAt: -1 })
-    .populate("customer", "name email phone avatar");
+    .populate("customer", "name email phone avatar")
+    .populate("assignedDriver", "name phone");
 
   res.json(orders);
 };
@@ -324,11 +325,19 @@ export const assignOrderToDriver = async (req: Request, res: Response) => {
   await order.save();
   await driver.save();
 
-  const { emitOrderToDriver } = await import("../socket/orderSocket.js");
+  const { emitOrderToDriver, emitOrderStatusUpdate } = await import("../socket/orderSocket.js");
   
   // Re-fetch populated order to send to driver
   const populatedOrder = await Order.findById(orderId).populate("customer", "name phone").exec();
   emitOrderToDriver(driverId as string, populatedOrder);
+  
+  // Notify user that order was assigned
+  emitOrderStatusUpdate(orderId as string, { 
+    status: order.status, 
+    deliveryStatus: order.deliveryStatus,
+    driver: driver.name,
+    driverPhone: driver.phone
+  });
 
   res.json({ message: "Order assigned to driver", order });
 };
@@ -462,4 +471,36 @@ export const declineOrderBroadcast = async (req: Request, res: Response) => {
   }
 
   res.json({ message: "Order declined" });
+};
+
+export const rescheduleOrder = async (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const { timeSlot, scheduleDate } = req.body;
+
+  if (!timeSlot || !scheduleDate) {
+    return res.status(400).json({ message: "Time slot and Schedule Date are required" });
+  }
+
+  const order = await Order.findById(orderId);
+  if (!order) {
+    return res.status(404).json({ message: "Order not found" });
+  }
+
+  const oldTimeSlot = order.timeSlot;
+  const oldScheduleDate = order.scheduleDate;
+  
+  order.timeSlot = timeSlot;
+  order.scheduleDate = scheduleDate;
+  await order.save();
+
+  emitOrderStatusUpdate(orderId as string, {
+    status: order.status,
+    deliveryStatus: order.deliveryStatus,
+    timeSlot: order.timeSlot,
+    scheduleDate: order.scheduleDate,
+    updatedAt: (order as any).updatedAt,
+    notificationMessage: `Some issue to we have to reschedule your order. Sorry for inconvenient to rescheduling your order. New Date: ${scheduleDate}, New Time: ${timeSlot}`
+  });
+
+  res.json({ message: "Order rescheduled successfully", order, oldTimeSlot, oldScheduleDate });
 };

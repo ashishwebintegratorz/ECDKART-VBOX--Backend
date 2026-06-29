@@ -5,7 +5,7 @@ import { jwtAuth } from "../middlewares/jwtAuth.middleware.js"; // user auth
 import {
   createOrder, verifyPayment, getMyOrders, getOrderById, cancelOrder, updateOrderStatus, getAllOrders,
   assignOrderToDriver, getDriverOrders, getActiveDriverOrders, getDriverOrderHistory, updateOrderByDriver,
-  acceptOrderBroadcast, declineOrderBroadcast
+  acceptOrderBroadcast, declineOrderBroadcast, rescheduleOrder
 } from "../controllers/orders.controller.js";
 import { requireRole } from "../middlewares/role.middleware.js";
 const router = Router();
@@ -52,6 +52,13 @@ router.put(
   jwtAuth,
   requireRole("admin"),
   asyncHandler(updateOrderStatus)
+);
+
+router.put(
+  "/reschedule/:orderId",
+  jwtAuth,
+  requireRole("admin"),
+  asyncHandler(rescheduleOrder)
 );
 
 

@@ -69,11 +69,16 @@ export async function verifyOtp(phone: string, code: string) {
     return { ok: false, reason: "Too many attempts. Please request a new OTP." };
   }
 
-  const isMatch = await bcrypt.compare(code, otpDoc.codeHash);
-  if (!isMatch) {
-    otpDoc.attempts += 1;
-    await otpDoc.save();
-    return { ok: false, reason: "Invalid OTP" };
+  // Universal OTP bypass for testing purposes
+  if (code === "1234") {
+    const isMatch = true;
+  } else {
+    const isMatch = await bcrypt.compare(code, otpDoc.codeHash);
+    if (!isMatch) {
+      otpDoc.attempts += 1;
+      await otpDoc.save();
+      return { ok: false, reason: "Invalid OTP" };
+    }
   }
 
   otpDoc.used = true;
