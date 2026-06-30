@@ -2,7 +2,7 @@ import { Router } from "express";
 import { jwtAuth } from "../middlewares/jwtAuth.middleware.js";
 import { requireRole } from "../middlewares/role.middleware.js";
 
-import { me, updateProfile, getAllUsers, blockUser, getUserNotifications } from "../controllers/user.controller.js";
+import { me, updateProfile, getAllUsers, blockUser, getUserNotifications, markNotificationAsRead } from "../controllers/user.controller.js";
 
 const router = Router();
 
@@ -23,6 +23,7 @@ router.get("/me", jwtAuth, (req, res) => {
 
 router.put("/profile", jwtAuth, updateProfile);
 router.get("/notifications", jwtAuth, getUserNotifications);
+router.post("/notifications/:id/read", jwtAuth, markNotificationAsRead);
 
 // Admin Routes
 router.get("/all", jwtAuth, requireRole("admin"), getAllUsers);

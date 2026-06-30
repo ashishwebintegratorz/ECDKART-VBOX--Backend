@@ -8,6 +8,7 @@ export interface INotification extends Document {
   type?: string;
   data?: Record<string, any>; // payload for client
   read?: boolean;
+  readBy?: Types.ObjectId[];
   targetGroup?: 'ALL_USERS' | 'ALL_DRIVERS' | 'SPECIFIC_USERS' | 'SPECIFIC_DRIVERS' | 'SPECIFIC';
   targetUsers?: Types.ObjectId[];
   createdAt: Date;
@@ -23,6 +24,7 @@ const NotificationSchema = new Schema<INotification>(
     type: { type: String },
     data: { type: Schema.Types.Mixed },
     read: { type: Boolean, default: false },
+    readBy: [{ type: Schema.Types.ObjectId, ref: "User" }],
     targetGroup: { type: String, enum: ['ALL_USERS', 'ALL_DRIVERS', 'SPECIFIC_USERS', 'SPECIFIC_DRIVERS', 'SPECIFIC'] },
     targetUsers: [{ type: Schema.Types.ObjectId, ref: "User" }],
   },

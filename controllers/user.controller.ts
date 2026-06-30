@@ -84,5 +84,25 @@ export const getUserNotifications = asyncHandler(async (req: Request, res: Respo
     $or: targetGroupChecks
   }).sort({ createdAt: -1 }).limit(50);
   
-  res.status(200).json(notifications);
+  const mappedNotifications = notifications.map(n => {
+    const obj = n.toObject();
+    return {
+      ...obj,
+      read: n.readBy && n.readBy.includes(user._id)
+    };
+  });
+  
+  res.status(200).json(mappedNotifications);
+});
+
+export const markNotificationAsRead = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { id } = req.params;
+  const Notification = (await import("../models/Notification.model.js")).default;
+  
+  await Notification.findByIdAndUpdate(id, {
+    $addToSet: { readBy: user._id }
+  });
+  
+  res.status(200).json({ success: true });
 });
