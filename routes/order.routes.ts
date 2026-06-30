@@ -5,7 +5,7 @@ import { jwtAuth } from "../middlewares/jwtAuth.middleware.js"; // user auth
 import {
   createOrder, verifyPayment, getMyOrders, getOrderById, cancelOrder, updateOrderStatus, getAllOrders,
   assignOrderToDriver, getDriverOrders, getActiveDriverOrders, getDriverOrderHistory, updateOrderByDriver,
-  acceptOrderBroadcast, declineOrderBroadcast, rescheduleOrder
+  acceptOrderBroadcast, declineOrderBroadcast, rescheduleOrder, verifyCoupon
 } from "../controllers/orders.controller.js";
 import { requireRole } from "../middlewares/role.middleware.js";
 const router = Router();
@@ -21,6 +21,12 @@ router.post(
   "/verify-payment",
   jwtAuth,
   asyncHandler(verifyPayment)
+);
+
+router.post(
+  "/verify-coupon",
+  jwtAuth,
+  asyncHandler(verifyCoupon)
 );
 
 

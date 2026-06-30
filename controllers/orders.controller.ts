@@ -11,10 +11,11 @@ import User from "../models/User.model.js";
 import { emitOrderStatusUpdate } from "../socket/orderSocket.js";
 import Address from "../models/Address.model.js";
 import { calculateDeliveryCharge, isWithinIndore } from "../utils/delivery.utils.js";
+import Coupon from "../models/Coupon.model.js";
 
 export const createOrder = async (req: Request, res: Response) => {
   const userId = req.user.id;
-  const { addressId, deliveryAddress, paymentMethod, scheduleDate, timeSlot, items, totalAmount: reqTotalAmount } = req.body;
+  const { addressId, deliveryAddress, paymentMethod, scheduleDate, timeSlot, items, totalAmount: reqTotalAmount, couponCode } = req.body;
 
   let addressSnapshot: any = {
     fullAddress: deliveryAddress || "123 Main Street, Indore",
@@ -82,7 +83,59 @@ export const createOrder = async (req: Request, res: Response) => {
 
   // ✅ Delivery charge
   const deliveryCharge = calculateDeliveryCharge(totalAmount);
-  const payableAmount = totalAmount + deliveryCharge;
+  let payableAmount = totalAmount + deliveryCharge;
+  let discountAmount = 0;
+
+  // ✅ Coupon logic
+  if (couponCode) {
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), active: true });
+    if (coupon) {
+      if (coupon.validFrom && new Date() < coupon.validFrom) {
+        return res.status(400).json({ message: "Coupon is not valid yet." });
+      }
+      if (coupon.validTo && new Date() > coupon.validTo) {
+        return res.status(400).json({ message: "Coupon has expired." });
+      }
+      if (coupon.usedBy && coupon.usedBy.some(id => id.toString() === userId)) {
+        return res.status(400).json({ message: "You have already used this coupon." });
+      }
+      if (coupon.minOrderValue && totalAmount < coupon.minOrderValue) {
+        return res.status(400).json({ message: `Minimum order value for this coupon is ₹${coupon.minOrderValue}` });
+      }
+
+      let applicableAmount = totalAmount;
+      // If coupon is restricted to specific products
+      if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+        applicableAmount = cartItems.reduce((sum: number, item: any) => {
+          if (coupon.applicableProducts?.some(p => p.toString() === item.product.toString())) {
+            return sum + (item.priceAtAdd * item.qty);
+          }
+          return sum;
+        }, 0);
+      }
+
+      if (applicableAmount > 0) {
+        if (coupon.discountType === "percent") {
+          discountAmount = (applicableAmount * coupon.discountValue) / 100;
+          if (coupon.maxDiscountValue && discountAmount > coupon.maxDiscountValue) {
+            discountAmount = coupon.maxDiscountValue;
+          }
+        } else {
+          discountAmount = coupon.discountValue;
+        }
+
+        payableAmount = Math.max(0, payableAmount - discountAmount);
+
+        // Mark coupon as used
+        coupon.usedBy?.push(userId as any);
+        await coupon.save();
+      } else {
+        return res.status(400).json({ message: "Coupon is not applicable to any items in your cart." });
+      }
+    } else {
+      return res.status(400).json({ message: "Invalid or inactive coupon code." });
+    }
+  }
 
   // 5️⃣ Create order
   const order = await Order.create({
@@ -101,6 +154,8 @@ export const createOrder = async (req: Request, res: Response) => {
     totalAmount,
     deliveryCharge,
     payableAmount,
+    discountAmount,
+    couponCode: couponCode ? couponCode.toUpperCase() : undefined,
     address: addressSnapshot,
     status: "pending",
     deliveryStatus: "pending",
@@ -503,4 +558,71 @@ export const rescheduleOrder = async (req: Request, res: Response) => {
   });
 
   res.json({ message: "Order rescheduled successfully", order, oldTimeSlot, oldScheduleDate });
+};
+
+export const verifyCoupon = async (req: Request, res: Response) => {
+  try {
+    const { code, items } = req.body;
+    const userId = req.user.id;
+
+    if (!code || !items || !items.length) {
+      return res.status(400).json({ message: "Coupon code and cart items are required." });
+    }
+
+    const coupon = await Coupon.findOne({ code: code.toUpperCase(), active: true });
+    
+    if (!coupon) {
+      return res.status(404).json({ message: "Invalid or inactive coupon code." });
+    }
+
+    if (coupon.validFrom && new Date() < coupon.validFrom) {
+      return res.status(400).json({ message: "Coupon is not valid yet." });
+    }
+    if (coupon.validTo && new Date() > coupon.validTo) {
+      return res.status(400).json({ message: "Coupon has expired." });
+    }
+    if (coupon.usedBy && coupon.usedBy.includes(userId as any)) {
+      return res.status(400).json({ message: "You have already used this coupon." });
+    }
+
+    const totalAmount = items.reduce((sum: number, item: any) => sum + ((item.priceAtAdd || item.price) * item.qty), 0);
+
+    if (coupon.minOrderValue && totalAmount < coupon.minOrderValue) {
+      return res.status(400).json({ message: `Minimum order value for this coupon is ₹${coupon.minOrderValue}` });
+    }
+
+    let applicableAmount = totalAmount;
+    if (coupon.applicableProducts && coupon.applicableProducts.length > 0) {
+      applicableAmount = items.reduce((sum: number, item: any) => {
+        if (coupon.applicableProducts?.some(p => p.toString() === item.product.toString())) {
+          return sum + ((item.priceAtAdd || item.price) * item.qty);
+        }
+        return sum;
+      }, 0);
+    }
+
+    if (applicableAmount <= 0) {
+      return res.status(400).json({ message: "Coupon is not applicable to any items in your cart." });
+    }
+
+    let discountAmount = 0;
+    if (coupon.discountType === "percent") {
+      discountAmount = (applicableAmount * coupon.discountValue) / 100;
+      if (coupon.maxDiscountValue && discountAmount > coupon.maxDiscountValue) {
+        discountAmount = coupon.maxDiscountValue;
+      }
+    } else {
+      discountAmount = coupon.discountValue;
+    }
+
+    return res.json({
+      valid: true,
+      code: coupon.code,
+      discountAmount: discountAmount,
+      message: "Coupon applied successfully!"
+    });
+  } catch (error) {
+    console.error("Error verifying coupon:", error);
+    return res.status(500).json({ message: "Failed to verify coupon." });
+  }
 };

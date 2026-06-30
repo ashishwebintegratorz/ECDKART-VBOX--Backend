@@ -61,6 +61,28 @@ export const blockUser = asyncHandler(async (req: Request, res: Response) => {
 
   user.isBlocked = !user.isBlocked;
   await user.save();
+  
+  return res.json({ message: user.isBlocked ? "User blocked successfully" : "User unblocked successfully", user });
+});
 
-  return res.json({ success: true, isBlocked: user.isBlocked, user });
+export const getUserNotifications = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const Notification = (await import("../models/Notification.model.js")).default;
+  
+  const targetGroupChecks: any[] = [{ targetGroup: 'ALL_USERS' }];
+  
+  if (user.role === 'driver') {
+    targetGroupChecks.push({ targetGroup: 'ALL_DRIVERS' });
+    targetGroupChecks.push({ targetGroup: 'SPECIFIC_DRIVERS', targetUsers: user._id });
+  } else {
+    targetGroupChecks.push({ targetGroup: 'SPECIFIC_USERS', targetUsers: user._id });
+  }
+  
+  targetGroupChecks.push({ targetGroup: 'SPECIFIC', targetUsers: user._id });
+  
+  const notifications = await Notification.find({
+    $or: targetGroupChecks
+  }).sort({ createdAt: -1 }).limit(50);
+  
+  res.status(200).json(notifications);
 });

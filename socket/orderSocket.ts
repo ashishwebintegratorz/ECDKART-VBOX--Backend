@@ -6,6 +6,11 @@ export function setIo(instance: Server) {
   io = instance;
 }
 
+export function getIo(): Server {
+  if (!io) throw new Error("Socket.io not initialized!");
+  return io;
+}
+
 export function initOrderSocket(instance: Server) {
   instance.on("connection", (socket) => {
     console.log("Socket connected:", socket.id);
@@ -14,6 +19,12 @@ export function initOrderSocket(instance: Server) {
       if (!orderId) return;
       socket.join(`order_${orderId}`);
       console.log(`${socket.id} joined order_${orderId}`);
+    });
+
+    socket.on("joinUser", (userId: string) => {
+      if (!userId) return;
+      socket.join(`user_${userId}`);
+      console.log(`${socket.id} joined user_${userId}`);
     });
 
     socket.on("join_online_drivers", () => {

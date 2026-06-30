@@ -33,6 +33,8 @@ export interface IOrder extends Document {
   items: IOrderItem[];
   totalAmount: number;
   payableAmount: number;
+  discountAmount?: number;
+  couponCode?: string;
   address: Types.ObjectId | any; // denormalized address snapshot or ref
   status: OrderStatus;
   deliveryStatus: DeliveryStatus;
@@ -69,6 +71,8 @@ const OrderSchema = new Schema<IOrder>(
     items: { type: [OrderItemSchema], required: true },
     totalAmount: { type: Number, required: true },
     payableAmount: { type: Number, required: true },
+    discountAmount: { type: Number, default: 0 },
+    couponCode: { type: String },
     address: { type: Schema.Types.Mixed, required: true }, // store snapshot: {fullAddress, location, phone}
     status: { type: String, default: "pending", index: true },
     deliveryStatus: { type: String, default: "pending", index: true },
