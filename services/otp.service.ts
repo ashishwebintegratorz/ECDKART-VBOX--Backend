@@ -14,8 +14,16 @@ function generateOtpCode(): string {
   return String(Math.floor(Math.random() * (max - min + 1)) + min);
 }
 
-export async function createAndSendOtp(phone: string) {
-  await OtpModel.deleteMany({ phone });
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
+  return phone.startsWith("+") ? phone : `+${phone}`;
+}
+
+export async function createAndSendOtp(rawPhone: string) {
+  const phone = normalizePhone(rawPhone);
+  await OtpModel.deleteMany({ phone: { $in: [phone, rawPhone, phone.replace("+91", "")] } });
 
   const code = generateOtpCode();
   const codeHash = await bcrypt.hash(code, 10);
@@ -29,11 +37,6 @@ export async function createAndSendOtp(phone: string) {
     used: false,
   });
 
-  //  ************************** */
-  // I have just create the normal basic otp service For Testing purpose 
-  // I will create the whatsapp otp service in the next commit
-  //  ************************** */
-  //  ************************** */
   await sendSms(
     phone,
     `Your login OTP is ${code}. It is valid for ${OTP_TTL_MINUTES} minutes.`
@@ -44,14 +47,14 @@ export async function createAndSendOtp(phone: string) {
   console.log(`🔑 OTP for ${phone} is: ${code}`);
   console.log(`========================================\n`);
 
-  //  ************************** */
-  //  ************************** */
-
   return { ok: true };
 }
 
-export async function verifyOtp(phone: string, code: string) {
-  const otpDoc = await OtpModel.findOne({ phone }).sort({ createdAt: -1 });
+export async function verifyOtp(rawPhone: string, code: string) {
+  const phone = normalizePhone(rawPhone);
+  const searchPhones = [phone, rawPhone, phone.replace("+91", "")];
+
+  const otpDoc = await OtpModel.findOne({ phone: { $in: searchPhones } }).sort({ createdAt: -1 });
 
   if (!otpDoc) {
     return { ok: false, reason: "OTP not found. Please request a new one." };
@@ -69,16 +72,11 @@ export async function verifyOtp(phone: string, code: string) {
     return { ok: false, reason: "Too many attempts. Please request a new OTP." };
   }
 
-  // Universal OTP bypass for testing purposes
-  if (code === "1234") {
-    const isMatch = true;
-  } else {
-    const isMatch = await bcrypt.compare(code, otpDoc.codeHash);
-    if (!isMatch) {
-      otpDoc.attempts += 1;
-      await otpDoc.save();
-      return { ok: false, reason: "Invalid OTP" };
-    }
+  const isMatch = await bcrypt.compare(code, otpDoc.codeHash);
+  if (!isMatch) {
+    otpDoc.attempts += 1;
+    await otpDoc.save();
+    return { ok: false, reason: "Invalid OTP. Please check the code." };
   }
 
   otpDoc.used = true;
