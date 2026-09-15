@@ -162,6 +162,8 @@ export const createOrder = async (req: Request, res: Response) => {
     scheduleDate,
     timeSlot,
     assignmentStatus: "pending",
+    paymentMethod,
+    codSettledWithAdmin: false,
   });
 
   // 6️⃣ COD flow

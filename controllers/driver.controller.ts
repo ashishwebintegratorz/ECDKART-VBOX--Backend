@@ -360,3 +360,220 @@ export const deleteDriver = asyncHandler(async (req: Request, res: Response) => 
     await UserModel.findByIdAndDelete(id);
     return res.json({ message: "Driver deleted successfully" });
 });
+
+/**
+ * Get COD Estimate for a Driver
+ * Used by both Driver App (for their own profile) and Admin Panel
+ */
+export const getDriverCODEstimate = asyncHandler(async (req: Request, res: Response) => {
+    // If Admin is requesting, driver ID comes from params. If driver is requesting, from req.user
+    const driverId = req.params.id || req.user.id;
+    
+    const pendingCodOrders = await OrderModel.find({
+        assignedDriver: driverId,
+        paymentMethod: "cod",
+        deliveryStatus: "delivered",
+        codSettledWithAdmin: false
+    });
+    
+    // To get driver earnings for these specific orders, we lookup DeliveryHistory
+    const orderIds = pendingCodOrders.map(o => o._id);
+    const histories = await DeliveryHistoryModel.find({
+        order: { $in: orderIds }
+    });
+    
+    let totalCODCollected = 0;
+    let driverEarnings = 0;
+    
+    pendingCodOrders.forEach(order => {
+        totalCODCollected += order.payableAmount || 0;
+        const history = histories.find(h => h.order?.toString() === order._id.toString());
+        if (history && history.calculatedPrice) {
+            driverEarnings += history.calculatedPrice;
+        } else {
+            driverEarnings += 40; // fallback flat fee
+        }
+    });
+    
+    const netAmountToAdmin = totalCODCollected - driverEarnings;
+    
+    return res.json({
+        totalCODCollected,
+        driverEarnings,
+        netAmountToAdmin,
+        pendingOrderCount: pendingCodOrders.length
+    });
+});
+
+/**
+ * Admin: Settle Driver COD
+ */
+export const adminSettleDriverCOD = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params; // Driver ID
+    
+    const pendingCodOrders = await OrderModel.find({
+        assignedDriver: id,
+        paymentMethod: "cod",
+        deliveryStatus: "delivered",
+        codSettledWithAdmin: false
+    });
+    
+    if (pendingCodOrders.length === 0) {
+        return res.status(400).json({ message: "No pending COD to settle for this driver." });
+    }
+    
+    // Mark them as settled
+    const orderIds = pendingCodOrders.map(o => o._id);
+    await OrderModel.updateMany(
+        { _id: { $in: orderIds } },
+        { $set: { codSettledWithAdmin: true } }
+    );
+    
+    return res.json({
+        message: "COD Settled successfully.",
+        settledOrdersCount: orderIds.length
+    });
+});
+
+/**
+ * Admin: Get All Drivers COD Estimates
+ * Used by Admin Panel to see all pending COD settlements in one view
+ */
+export const getAllDriversCODEstimates = asyncHandler(async (req: Request, res: Response) => {
+    // 1. Get all pending COD orders
+    const pendingCodOrders = await OrderModel.find({
+        paymentMethod: "cod",
+        deliveryStatus: "delivered",
+        codSettledWithAdmin: false
+    }).populate('assignedDriver', 'name phone email avatar driverDetails');
+
+    // 2. Get delivery histories for these orders
+    const orderIds = pendingCodOrders.map(o => o._id);
+    const histories = await DeliveryHistoryModel.find({
+        order: { $in: orderIds }
+    });
+
+    // 3. Group by driver
+    const driverEstimates: Record<string, any> = {};
+
+    pendingCodOrders.forEach(order => {
+        if (!order.assignedDriver) return;
+        
+        const driverId = (order.assignedDriver as any)._id.toString();
+        
+        if (!driverEstimates[driverId]) {
+            driverEstimates[driverId] = {
+                driver: order.assignedDriver,
+                totalCODCollected: 0,
+                driverEarnings: 0,
+                pendingOrderCount: 0,
+            };
+        }
+
+        const estimate = driverEstimates[driverId];
+        estimate.pendingOrderCount += 1;
+        estimate.totalCODCollected += order.payableAmount || 0;
+
+        const history = histories.find(h => h.order?.toString() === order._id.toString());
+        if (history && history.calculatedPrice) {
+            estimate.driverEarnings += history.calculatedPrice;
+        } else {
+            estimate.driverEarnings += 40; // fallback flat fee
+        }
+    });
+
+    // 4. Calculate net amount for each and convert to array
+    const result = Object.values(driverEstimates).map(estimate => ({
+        ...estimate,
+        netAmountToAdmin: estimate.totalCODCollected - estimate.driverEarnings
+    }));
+
+    // Sort by highest pending amount first
+    result.sort((a, b) => b.netAmountToAdmin - a.netAmountToAdmin);
+
+    return res.json({
+        success: true,
+        data: result
+    });
+});
+
+import { PayoutRequest } from "../models/PayoutRequest.model.js";
+
+/**
+ * Get Wallet Summary for Driver
+ */
+export const getWalletSummary = asyncHandler(async (req: Request, res: Response) => {
+    const driverId = req.user?.id;
+    if (!driverId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // Calculate total earnings
+    const deliveries = await DeliveryHistoryModel.find({ driverId });
+    let totalEarnings = 0;
+    deliveries.forEach(d => {
+        if (d.calculatedPrice) totalEarnings += d.calculatedPrice;
+        else totalEarnings += 40;
+    });
+
+    // Calculate total payouts (approved + pending)
+    const payouts = await PayoutRequest.find({ driver: driverId });
+    let totalPayouts = 0;
+    payouts.forEach(p => {
+        totalPayouts += p.amount;
+    });
+
+    const balance = totalEarnings - totalPayouts;
+    
+    // Get today's orders
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const todayOrders = await OrderModel.countDocuments({
+        assignedDriver: driverId,
+        createdAt: { $gte: startOfDay, $lte: endOfDay }
+    });
+
+    return res.json({
+        success: true,
+        data: {
+            balance,
+            billable_hours: 0,
+            today_orders: todayOrders,
+            recent_requests: payouts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 5)
+        }
+    });
+});
+
+/**
+ * Request Wallet Withdrawal
+ */
+export const requestWithdrawal = asyncHandler(async (req: Request, res: Response) => {
+    const driverId = req.user?.id;
+    const { amount } = req.body;
+    
+    if (!driverId) {
+        return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    
+    if (!amount || amount < 200) {
+        return res.status(400).json({ success: false, message: "Minimum withdrawal is ?200" });
+    }
+    
+    const payout = new PayoutRequest({
+        driver: driverId,
+        amount,
+        status: "pending"
+    });
+    
+    await payout.save();
+    
+    return res.json({
+        success: true,
+        data: payout,
+        message: "Payout request submitted successfully"
+    });
+});
+

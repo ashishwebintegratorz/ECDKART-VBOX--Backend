@@ -1,6 +1,20 @@
 import { Request, Response } from "express";
 import Category from "../models/Category.model.js";
 import { BadRequestException, NotFoundException } from "../utils/appError.js";
+import cloudinary from "../config/cloudinary.js";
+
+const uploadToCloudinary = (file: Express.Multer.File, folder: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder },
+      (err, result) => {
+        if (err || !result) return reject(err);
+        resolve(result.secure_url);
+      }
+    );
+    stream.end(file.buffer);
+  });
+};
 
 // Create slug helper
 const toSlug = (name: string) =>
@@ -24,9 +38,15 @@ export const addCategory = async (req: Request, res: Response) => {
     throw new BadRequestException("Category already exists");
   }
 
+  let image = "";
+  if (req.file) {
+    image = await uploadToCloudinary(req.file, "categories");
+  }
+
   const category = await Category.create({
     name,
     slug,
+    image,
     parent: parent || null,
     ordering: ordering || 0,
   });
@@ -73,12 +93,18 @@ export const updateCategory = async (req: Request, res: Response) => {
   }
 
   const slug = name ? toSlug(name) : category.slug;
+  
+  let image = category.image;
+  if (req.file) {
+    image = await uploadToCloudinary(req.file, "categories");
+  }
 
   const updated = await Category.findByIdAndUpdate(
     req.params.id,
     {
       name: name ?? category.name,
       slug,
+      image,
       parent: parent ?? category.parent,
       ordering: ordering ?? category.ordering,
     },

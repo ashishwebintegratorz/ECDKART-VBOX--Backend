@@ -45,6 +45,9 @@ export interface IOrder extends Document {
   assignedDriver?: Types.ObjectId;
   assignmentId?: Types.ObjectId;
   paymentTransaction?: Types.ObjectId;
+  paymentMethod?: string; // "cod" or "razorpay"
+  deliveryCharge?: number;
+  codSettledWithAdmin: boolean;
   meta?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
@@ -83,6 +86,9 @@ const OrderSchema = new Schema<IOrder>(
     assignedDriver: { type: Schema.Types.ObjectId, ref: "User" },
     assignmentId: { type: Schema.Types.ObjectId, ref: "Assignment" },
     paymentTransaction: { type: Schema.Types.ObjectId, ref: "PaymentTransaction" },
+    paymentMethod: { type: String, enum: ["cod", "razorpay"] },
+    deliveryCharge: { type: Number, default: 0 },
+    codSettledWithAdmin: { type: Boolean, default: false },
     meta: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
