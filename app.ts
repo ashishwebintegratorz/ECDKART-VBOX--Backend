@@ -21,6 +21,8 @@ import reviewRoutes from "./routes/review.routes.js"
 import zoneRoutes from "./routes/zone.route.js"
 import settingRoutes from "./routes/setting.route.js"
 import bannerRoutes from "./routes/banner.routes.js"
+import issueRoutes from "./routes/issue.routes.js"
+import refundRoutes from "./routes/refund.routes.js"
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -67,6 +69,8 @@ app.use(`${BASE_PATH}/reviews`, reviewRoutes);
 app.use(`${BASE_PATH}/zones`, zoneRoutes);
 app.use(`${BASE_PATH}/settings`, settingRoutes);
 app.use(`${BASE_PATH}/banners`, bannerRoutes);
+app.use(`${BASE_PATH}/issues`, issueRoutes);
+app.use(`${BASE_PATH}/refunds`, refundRoutes);
 
 // app.use(`${BASE_PATH}/razorpay`, razorpayRoutes); // Moved up
 

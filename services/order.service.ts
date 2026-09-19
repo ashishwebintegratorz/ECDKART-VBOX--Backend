@@ -67,6 +67,9 @@ export const confirmOrderLogic = async (orderId: string) => {
             .exec();
             
         console.log(`[confirmOrderLogic] Order confirmed, waiting for admin assignment`);
-        // broadcastNewOrder(populatedOrder); // Removed auto-broadcast
+        
+        // Notify admin
+        const { emitAdminNotification } = await import("../socket/orderSocket.js");
+        emitAdminNotification("NEW_ORDER", `New Order Placed: ${order.orderNumber}`, populatedOrder);
     }
 };

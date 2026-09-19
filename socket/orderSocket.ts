@@ -38,6 +38,11 @@ export function initOrderSocket(instance: Server) {
       console.log(`${socket.id} joined driver_${driverId}`);
     });
 
+    socket.on("joinAdmin", () => {
+      socket.join("admins");
+      console.log(`${socket.id} joined admins room`);
+    });
+
     socket.on("leaveOrder", (orderId: string) => {
       if (!orderId) return;
       socket.leave(`order_${orderId}`);
@@ -75,4 +80,18 @@ export function emitOrderToDriver(driverId: string, orderData: any) {
   }
   io.to(`driver_${driverId}`).emit("new_order_broadcast", orderData);
   console.log(`[Socket] Assigned order directly to driver_${driverId}`);
+}
+
+export function emitAdminNotification(type: string, message: string, data: any = {}) {
+  if (!io) {
+    console.warn("IO not initialized");
+    return;
+  }
+  io.to("admins").emit("adminNotification", {
+    type,
+    message,
+    data,
+    timestamp: new Date().toISOString()
+  });
+  console.log(`[Socket] Admin Notification Emitted: ${type} - ${message}`);
 }

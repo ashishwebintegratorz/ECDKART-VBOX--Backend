@@ -8,7 +8,7 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import { confirmOrderLogic } from "../services/order.service.js";
 import User from "../models/User.model.js";
-import { emitOrderStatusUpdate } from "../socket/orderSocket.js";
+import { emitOrderStatusUpdate, emitAdminNotification } from "../socket/orderSocket.js";
 import Address from "../models/Address.model.js";
 import { calculateDeliveryCharge, isWithinIndore } from "../utils/delivery.utils.js";
 import Coupon from "../models/Coupon.model.js";
@@ -286,10 +286,37 @@ export const cancelOrder = async (req: Request, res: Response) => {
   order.status = "cancelled";
   await order.save();
 
-  await PaymentTransaction.updateMany(
-    { order: order._id },
-    { status: "failed" }
-  );
+  // Handle refunds for non-COD successful payments
+  if (order.paymentMethod !== "cod") {
+    const successTransaction = await PaymentTransaction.findOne({
+      order: order._id,
+      status: "success"
+    });
+
+    if (successTransaction) {
+      // Import dynamically to avoid circular dependencies if any
+      const { default: Refund } = await import("../models/Refund.model.js");
+      await Refund.create({
+        order: order._id,
+        customer: userId,
+        amount: successTransaction.amount,
+        status: "pending"
+      });
+      // We do not mark the transaction as failed, because the payment was successful.
+      // The refund record handles the reverse flow.
+    } else {
+      await PaymentTransaction.updateMany(
+        { order: order._id, status: { $ne: "success" } },
+        { status: "failed" }
+      );
+    }
+  } else {
+    // For COD, just mark transactions as failed
+    await PaymentTransaction.updateMany(
+      { order: order._id },
+      { status: "failed" }
+    );
+  }
 
   res.json({ success: true, order });
 };
@@ -455,6 +482,9 @@ export const updateOrderByDriver = async (req: Request, res: Response) => {
   await order.save();
 
   if (status === "delivered") {
+    // Notify admin
+    emitAdminNotification("ORDER_DELIVERED", `Order Delivered: ${order.orderNumber}`, order);
+
     const remainingOrders = await Order.findOne({
       assignedDriver: driverId,
       deliveryStatus: { $in: ["assigned", "out_for_delivery"] },
