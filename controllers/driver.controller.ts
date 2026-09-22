@@ -385,14 +385,25 @@ export const getDriverCODEstimate = asyncHandler(async (req: Request, res: Respo
     let totalCODCollected = 0;
     let driverEarnings = 0;
     
-    pendingCodOrders.forEach(order => {
-        totalCODCollected += order.payableAmount || 0;
+    const ordersDetails = pendingCodOrders.map(order => {
+        const orderAmount = order.payableAmount || 0;
+        totalCODCollected += orderAmount;
+        
+        let orderEarnings = 40; // fallback flat fee
         const history = histories.find(h => h.order?.toString() === order._id.toString());
         if (history && history.calculatedPrice) {
-            driverEarnings += history.calculatedPrice;
-        } else {
-            driverEarnings += 40; // fallback flat fee
+            orderEarnings = history.calculatedPrice;
         }
+        driverEarnings += orderEarnings;
+
+        return {
+            _id: order._id,
+            orderNumber: order.orderNumber,
+            payableAmount: orderAmount,
+            driverEarnings: orderEarnings,
+            createdAt: order.createdAt,
+            status: order.status
+        };
     });
     
     const netAmountToAdmin = totalCODCollected - driverEarnings;
@@ -401,7 +412,8 @@ export const getDriverCODEstimate = asyncHandler(async (req: Request, res: Respo
         totalCODCollected,
         driverEarnings,
         netAmountToAdmin,
-        pendingOrderCount: pendingCodOrders.length
+        pendingOrderCount: pendingCodOrders.length,
+        orders: ordersDetails
     });
 });
 
