@@ -6,7 +6,7 @@ import { createIssue, getAllIssues, resolveIssue } from "../controllers/issue.co
 const router = Router();
 
 // User route to create issue
-router.post("/", jwtAuth, requireRole("customer"), createIssue);
+router.post("/", jwtAuth, createIssue);
 
 // Admin route to get all issues
 router.get("/admin", jwtAuth, requireRole("admin"), getAllIssues);

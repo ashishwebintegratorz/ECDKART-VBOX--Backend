@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import mongoSanitize from "express-mongo-sanitize";
 import { config } from "./config/app.config.js";
 import { errorHandler } from "./middlewares/errorHandler.middleware.js";
 import { HTTPSTATUS } from "./config/http.config.js";
@@ -29,6 +31,10 @@ const BASE_PATH = config.BASE_PATH;
 
 // 🟢 Razorpay Webhook (MUST be before express.json() for raw body verification)
 app.use(`${BASE_PATH}/razorpay`, razorpayRoutes);
+
+// Security Middlewares
+app.use(helmet());
+app.use(mongoSanitize());
 
 // Body
 app.use(express.json());

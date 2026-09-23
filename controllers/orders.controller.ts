@@ -254,6 +254,7 @@ export const getOrderById = async (req: Request, res: Response) => {
 
   const order = await Order.findById(orderId)
     .populate("customer", "name email phone avatar")
+    .populate("assignedDriver", "name phone avatar")
     .populate("items.product", "name variants images")
     .populate("paymentTransaction");
 

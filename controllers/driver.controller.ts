@@ -6,6 +6,7 @@ import { getRoute } from "../services/ors.service.js";
 import DeliveryHistoryModel from "../models/DeliveryHistory.model.js";
 import cloudinary from "../config/cloudinary.js";
 import bcrypt from "bcrypt";
+import { getIo } from "../socket/orderSocket.js";
 
 /**
  * Get all drivers with their busy status
@@ -63,6 +64,18 @@ export const toggleOnlineStatus = asyncHandler(async (req: Request, res: Respons
         { isOnline },
         { new: true }
     );
+
+    // Notify admins about driver status change
+    try {
+        const io = getIo();
+        io.to("admins").emit("driverStatusUpdated", {
+            driverId: updatedUser?._id,
+            isOnline: updatedUser?.isOnline,
+            name: updatedUser?.name,
+        });
+    } catch (error) {
+        console.error("Failed to emit socket event:", error);
+    }
 
     return res.json({ message: `Status updated to ${isOnline ? "Online" : "Offline"}`, user: updatedUser });
 });
