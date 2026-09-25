@@ -3,6 +3,8 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
+import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 import { config } from "./config/app.config.js";
 import { errorHandler } from "./middlewares/errorHandler.middleware.js";
 import { HTTPSTATUS } from "./config/http.config.js";
@@ -36,6 +38,16 @@ app.use(`${BASE_PATH}/razorpay`, razorpayRoutes);
 app.use(helmet());
 app.use(mongoSanitize());
 
+// Rate Limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // limit each IP to 1000 requests per windowMs
+  message: "Too many requests from this IP, please try again after 15 minutes",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
+
 // Body
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -48,7 +60,27 @@ app.use(
   })
 );
 
-// Health
+// Health & Readiness Probes
+app.get(
+  "/healthz",
+  asyncHandler(async (req, res) => {
+    return res.status(HTTPSTATUS.OK).json({ status: "ok" });
+  })
+);
+
+app.get(
+  "/readyz",
+  asyncHandler(async (req, res) => {
+    // Check database connection status
+    const isDbReady = mongoose.connection.readyState === 1;
+    if (isDbReady) {
+      return res.status(HTTPSTATUS.OK).json({ status: "ready" });
+    } else {
+      return res.status(503).json({ status: "not_ready" });
+    }
+  })
+);
+
 app.get(
   `/`,
   asyncHandler(async (req, res) => {
