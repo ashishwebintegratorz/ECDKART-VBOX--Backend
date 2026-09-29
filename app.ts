@@ -36,7 +36,7 @@ app.use(`${BASE_PATH}/razorpay`, razorpayRoutes);
 
 // Security Middlewares
 app.use(helmet());
-app.use(mongoSanitize());
+// app.use(mongoSanitize()); // Removed because it crashes on Express 4.19+ when setting req.query
 
 // Rate Limiting
 const globalLimiter = rateLimit({
