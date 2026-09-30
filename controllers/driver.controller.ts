@@ -533,11 +533,12 @@ export const getWalletSummary = asyncHandler(async (req: Request, res: Response)
         return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    // Calculate total earnings
-    const deliveries = await DeliveryHistoryModel.find({ driverId });
+    // Calculate total earnings from delivered orders
+    const deliveries = await OrderModel.find({ assignedDriver: driverId, deliveryStatus: "delivered" });
     let totalEarnings = 0;
-    deliveries.forEach(d => {
-        if (d.calculatedPrice) totalEarnings += d.calculatedPrice;
+    deliveries.forEach((d: any) => {
+        if (d.deliveryCharge) totalEarnings += d.deliveryCharge;
+        else if (d.driverEarnings) totalEarnings += d.driverEarnings;
         else totalEarnings += 40;
     });
 
@@ -558,7 +559,8 @@ export const getWalletSummary = asyncHandler(async (req: Request, res: Response)
     
     const todayOrders = await OrderModel.countDocuments({
         assignedDriver: driverId,
-        createdAt: { $gte: startOfDay, $lte: endOfDay }
+        deliveryStatus: "delivered",
+        updatedAt: { $gte: startOfDay, $lte: endOfDay }
     });
 
     return res.json({

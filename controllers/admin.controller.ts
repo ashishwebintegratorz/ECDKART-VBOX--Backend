@@ -32,7 +32,7 @@ const deleteFromCloudinary = async (imageUrl: string) => {
 
 export const getDashboardMetrics = asyncHandler(async (req: Request, res: Response) => {
   // 1. Total Customers
-  const totalCustomers = await UserModel.countDocuments({ role: "user" });
+  const totalCustomers = await UserModel.countDocuments({ role: "customer" });
 
   // 2. Total Orders
   const totalOrders = await Order.countDocuments();
@@ -429,4 +429,5 @@ export const deleteNotification = asyncHandler(async (req: Request, res: Respons
   
   res.status(200).json({ message: "Notification deleted successfully" });
 });
+
 

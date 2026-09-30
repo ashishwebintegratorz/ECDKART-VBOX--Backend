@@ -444,10 +444,7 @@ export const getDriverOrders = async (req: Request, res: Response) => {
 
 export const getActiveDriverOrders = async (req: Request, res: Response) => {
   const driverId = req.user.id;
-  const orders = await Order.find({ 
-    assignedDriver: driverId, 
-    deliveryStatus: { $in: ["assigned", "out_for_delivery"] } 
-  })
+  const orders = await Order.find({ assignedDriver: driverId, deliveryStatus: { $in: ["assigned", "out_for_delivery"] } })
   .sort({ createdAt: -1 })
   .populate("customer", "name phone");
   
