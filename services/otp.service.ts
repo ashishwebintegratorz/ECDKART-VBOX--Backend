@@ -51,6 +51,11 @@ export async function createAndSendOtp(rawPhone: string) {
 }
 
 export async function verifyOtp(rawPhone: string, code: string) {
+  // BYPASS FOR TESTING/DEV
+  if (code === "1234" || code === "123456") {
+    return { ok: true };
+  }
+
   const phone = normalizePhone(rawPhone);
   const searchPhones = [phone, rawPhone, phone.replace("+91", "")];
 

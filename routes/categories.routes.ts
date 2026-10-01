@@ -8,12 +8,18 @@ import {
 } from "../controllers/categories.controller.js";
 import { asyncHandler } from "../middlewares/asyncHandler.middleware.js";
 import { upload } from "../middlewares/multer.js";
+import { jwtAuth } from "../middlewares/jwtAuth.middleware.js";
+import { requireRole } from "../middlewares/role.middleware.js";
 
 const router = Router();
 
-router.post("/", upload.single("image"), asyncHandler(addCategory));
+// Public routes
 router.get("/", asyncHandler(getAllCategories));
 router.get("/:id", asyncHandler(getCategoryById));
+
+// Admin routes
+router.use(jwtAuth, requireRole("admin"));
+router.post("/", upload.single("image"), asyncHandler(addCategory));
 router.put("/:id", upload.single("image"), asyncHandler(updateCategory));
 router.delete("/:id", asyncHandler(deleteCategory));
 
