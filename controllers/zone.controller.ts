@@ -36,8 +36,14 @@ export const createZone = asyncHandler(async (req: Request, res: Response) => {
 // @access  Private/Admin
 export const updateZone = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  
-  const zone = await Zone.findByIdAndUpdate(id, req.body, {
+  const { name, city, boundary, isActive } = req.body;
+  const updates: any = {};
+  if (name !== undefined) updates.name = name;
+  if (city !== undefined) updates.city = city;
+  if (boundary !== undefined) updates.boundary = boundary;
+  if (isActive !== undefined) updates.isActive = isActive;
+
+  const zone = await Zone.findByIdAndUpdate(id, { $set: updates }, {
     new: true,
     runValidators: true,
   });

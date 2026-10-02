@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoSanitize from "express-mongo-sanitize";
+import hpp from "hpp";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import { config } from "./config/app.config.js";
@@ -49,13 +50,31 @@ const globalLimiter = rateLimit({
 app.use(globalLimiter);
 
 // Body
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+
+// HTTP Parameter Pollution
+app.use(hpp());
 
 // CORS
+const allowedOrigins = [
+  config.FRONTEND_ORIGIN,
+  "https://admin-vegbox.onrender.com",
+  "http://localhost:3000",
+  "http://localhost:5173",
+];
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      // allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) === -1) {
+        var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
     credentials: true,
   })
 );

@@ -164,3 +164,12 @@ export const refreshAccessToken = async (req: Request, res: Response, next: Func
     next(err);
   }
 };
+
+export const logoutUser = asyncHandler(async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  if (user) {
+    user.tokenIssuedAt = Math.floor(Date.now() / 1000);
+    await user.save();
+  }
+  res.status(200).json({ success: true, message: "Logged out successfully" });
+});

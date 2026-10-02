@@ -14,6 +14,7 @@ export interface IUser extends Document {
   isOnline: boolean;
   isReturning: boolean;
   isBlocked: boolean;
+  tokenIssuedAt?: number;
   createdAt: Date;
   updatedAt: Date;
   driverDetails?: {
@@ -37,6 +38,7 @@ const UserSchema = new Schema<IUser>(
     isOnline: { type: Boolean, default: false, index: true },
     isReturning: { type: Boolean, default: false, index: true },
     isBlocked: { type: Boolean, default: false },
+    tokenIssuedAt: { type: Number },
     driverDetails: {
       upiId: { type: String },
       drivingLicense: { type: String },

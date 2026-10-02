@@ -100,7 +100,9 @@ export const getAllProducts = async (req: Request, res: Response) => {
   const limit = Number(req.query.limit) || 10;
   const skip = (page - 1) * limit;
 
-  const search = (req.query.search as string) || "";
+  let search = (req.query.search as string) || "";
+  // Escape regex characters to prevent ReDoS
+  search = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const category = (req.query.category as string) || "";
   const minPrice = Number(req.query.minPrice) || undefined;
   const maxPrice = Number(req.query.maxPrice) || undefined;

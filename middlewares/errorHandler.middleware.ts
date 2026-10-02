@@ -5,7 +5,7 @@ import { HTTPSTATUS } from "../config/http.config.js";
 import { AppError } from "../utils/appError.js";
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-  console.error("Error on path", req.path, err);
+  console.error(`[Error] ${req.method} ${req.path}:`, err?.message || "Unknown error");
 
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
@@ -36,5 +36,5 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
 
   return res
     .status(HTTPSTATUS.INTERNAL_SERVER_ERROR)
-    .json({ message: "Internal Server Error", error: (err as any)?.message });
+    .json({ message: "Internal Server Error" });
 };

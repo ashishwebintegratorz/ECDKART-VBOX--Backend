@@ -328,7 +328,23 @@ export const getAllCoupons = asyncHandler(async (req: Request, res: Response) =>
 
 export const updateCoupon = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const updates = req.body;
+  const { code, description, title, message, discountType, discountValue, minOrderValue, maxDiscountValue, usageLimit, perUserLimit, validFrom, validTo, active, applicableProducts, targetUsers } = req.body;
+  const updates: any = {};
+  if (code !== undefined) updates.code = code;
+  if (description !== undefined) updates.description = description;
+  if (title !== undefined) updates.title = title;
+  if (message !== undefined) updates.message = message;
+  if (discountType !== undefined) updates.discountType = discountType;
+  if (discountValue !== undefined) updates.discountValue = discountValue;
+  if (minOrderValue !== undefined) updates.minOrderValue = minOrderValue;
+  if (maxDiscountValue !== undefined) updates.maxDiscountValue = maxDiscountValue;
+  if (usageLimit !== undefined) updates.usageLimit = usageLimit;
+  if (perUserLimit !== undefined) updates.perUserLimit = perUserLimit;
+  if (validFrom !== undefined) updates.validFrom = validFrom;
+  if (validTo !== undefined) updates.validTo = validTo;
+  if (active !== undefined) updates.active = active;
+  if (applicableProducts !== undefined) updates.applicableProducts = applicableProducts;
+  if (targetUsers !== undefined) updates.targetUsers = targetUsers;
   
   if (req.file) {
     updates.image = await uploadToCloudinary(req.file);
@@ -355,7 +371,7 @@ export const updateCoupon = asyncHandler(async (req: Request, res: Response) => 
     await deleteFromCloudinary(oldCoupon.image);
   }
 
-  const updatedCoupon = await Coupon.findByIdAndUpdate(id, updates, { new: true });
+  const updatedCoupon = await Coupon.findByIdAndUpdate(id, { $set: updates }, { new: true });
   res.status(200).json({ message: "Coupon updated successfully", coupon: updatedCoupon });
 });
 

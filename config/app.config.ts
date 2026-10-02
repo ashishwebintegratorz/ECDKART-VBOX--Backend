@@ -22,8 +22,8 @@ const appConfig = (): AppConfig => ({
   BASE_PATH: getEnv("BASE_PATH", "/api"),
   MONGO_URI: getEnv("MONGO_URI", ""),
 
-  JWT_ACCESS_SECRET: getEnv("JWT_ACCESS_SECRET", "access-secret") as Secret,
-  JWT_REFRESH_SECRET: getEnv("JWT_REFRESH_SECRET", "refresh-secret") as Secret,
+  JWT_ACCESS_SECRET: getEnv("JWT_ACCESS_SECRET") as Secret,
+  JWT_REFRESH_SECRET: getEnv("JWT_REFRESH_SECRET") as Secret,
   JWT_ACCESS_EXPIRES_IN: getEnv("JWT_ACCESS_EXPIRES_IN", "30m"),
   JWT_REFRESH_EXPIRES_IN: getEnv("JWT_REFRESH_EXPIRES_IN", "90d"),
 

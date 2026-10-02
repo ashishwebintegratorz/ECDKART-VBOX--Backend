@@ -42,6 +42,10 @@ export const jwtAuth = async (
       throw new UnauthorizedException("Your account has been blocked by the admin.");
     }
 
+    if (user.tokenIssuedAt && payload.iat && payload.iat < user.tokenIssuedAt) {
+      throw new UnauthorizedException("Token revoked");
+    }
+
     (req as any).user = user;
     next();
   } catch (err) {
