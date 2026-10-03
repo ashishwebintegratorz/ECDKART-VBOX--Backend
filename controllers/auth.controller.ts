@@ -93,7 +93,21 @@ export const loginWithPin = asyncHandler(
       );
     }
 
-    const ok = await bcrypt.compare(pin, userPinHash);
+    let ok = false;
+    // Handle existing legacy unhashed PINs
+    if (!userPinHash.startsWith("$2b$")) {
+      ok = pin === userPinHash;
+      if (ok) {
+        // Upgrade to bcrypt transparently
+        const newHash = await bcrypt.hash(pin, 10);
+        if (user.pinHash) user.pinHash = newHash;
+        else user.set("password", newHash);
+        await user.save();
+      }
+    } else {
+      ok = await bcrypt.compare(pin, userPinHash);
+    }
+
     if (!ok) throw new UnauthorizedException("Invalid PIN");
 
     const auth = createAuthTokens(user);

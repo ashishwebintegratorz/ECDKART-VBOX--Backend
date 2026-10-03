@@ -16,14 +16,16 @@ async function start() {
     cors: {
       origin: config.FRONTEND_ORIGIN,
       credentials: true
-    }
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
   });
 
   setIo(io);
   initOrderSocket(io);
 
-  server.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT} in ${config.NODE_ENV} mode`);
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server listening on port ${PORT} in ${config.NODE_ENV} mode!`);
   });
 
   // graceful shutdown

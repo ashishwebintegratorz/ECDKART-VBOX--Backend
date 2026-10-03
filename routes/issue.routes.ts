@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { jwtAuth } from "../middlewares/jwtAuth.middleware.js";
 import { requireRole } from "../middlewares/role.middleware.js";
-import { createIssue, getAllIssues, resolveIssue } from "../controllers/issue.controller.js";
+import { createIssue, getAllIssues, resolveIssue, deleteIssue } from "../controllers/issue.controller.js";
 
 const router = Router();
 
@@ -13,5 +13,8 @@ router.get("/admin", jwtAuth, requireRole("admin"), getAllIssues);
 
 // Admin route to resolve issue
 router.put("/:id/resolve", jwtAuth, requireRole("admin"), resolveIssue);
+
+// Admin route to delete issue
+router.delete("/:id", jwtAuth, requireRole("admin"), deleteIssue);
 
 export default router;

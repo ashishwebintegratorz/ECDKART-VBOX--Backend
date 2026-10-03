@@ -70,3 +70,22 @@ export const resolveIssue = asyncHandler(async (req: Request, res: Response) => 
         message: "Issue resolved successfully",
     });
 });
+
+/**
+ * @desc    Delete an issue
+ * @route   DELETE /api/issues/:id
+ * @access  Private (Admin)
+ */
+export const deleteIssue = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    const issue = await IssueModel.findByIdAndDelete(id);
+    if (!issue) {
+        return res.status(404).json({ success: false, message: "Issue not found" });
+    }
+
+    return res.json({
+        success: true,
+        message: "Issue deleted successfully",
+    });
+});
